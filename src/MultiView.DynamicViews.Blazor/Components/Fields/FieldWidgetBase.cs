@@ -24,6 +24,9 @@ public abstract class FieldWidgetBase : ComponentBase
     [Parameter]
     public bool IsRequired { get; set; }
 
+    [Parameter]
+    public EventCallback<object?> ValueChanged { get; set; }
+
     protected string Label => string.IsNullOrWhiteSpace(Field.Label) ? Field.Name : Field.Label;
 
     protected object? GetValue()
@@ -34,5 +37,10 @@ public abstract class FieldWidgetBase : ComponentBase
     protected void SetValue(object? value)
     {
         RecordPropertyAccessor.SetValue(Record, Field.Name, value);
+
+        if (ValueChanged.HasDelegate)
+        {
+            _ = ValueChanged.InvokeAsync(value);
+        }
     }
 }

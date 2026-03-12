@@ -5,4 +5,7 @@
     <Project Path="src/MultiView.DynamicViews.Domain/MultiView.DynamicViews.Domain.csproj" />
     <Project Path="src/MultiView.DynamicViews.Sample/MultiView.DynamicViews.Sample.csproj" />
   </Folder>
+  <Folder Name="/_files/">
+    <File Path="README.md" />
+  </Folder>
 </Solution>

@@ -8,7 +8,7 @@
     { "name": "Number", "label": "N°", "kind": "Text" },
     { "name": "CustomerName", "label": "Client", "kind": "Text" },
     { "name": "Origin", "label": "Origine", "kind": "Text" },
-    { "name": "Status", "label": "État", "kind": "Select", "widget": "select", "widgetOptions": ["Draft", "Confirmed", "Cancelled"] },
+    { "name": "Status", "label": "État", "kind": "Select", "searchWidget": "select", "searchWidgetOptions": ["Draft", "Confirmed", "Cancelled"] },
     { "name": "Amount", "label": "Montant", "kind": "Currency" }
   ],
   "searchFields": [

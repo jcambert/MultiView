@@ -12,6 +12,12 @@ public sealed class ViewFieldDefinition
 
     public string? Widget { get; init; }
 
+    public string? SearchWidget { get; init; }
+
+    public string? SearchLabel { get; init; }
+
+    public JsonElement? SearchWidgetOptions { get; init; }
+
     public string? Format { get; init; }
 
     public string? CssClass { get; init; }

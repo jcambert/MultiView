@@ -47,6 +47,9 @@ else if (_isVisible)
     [Parameter]
     public IReadOnlyDictionary<string, object?>? GlobalContext { get; set; }
 
+    [Parameter]
+    public EventCallback<object?> ValueChanged { get; set; }
+
     private bool _isVisible = true;
     private bool _isEnabled = true;
     private bool _isReadOnly = false;
@@ -105,7 +108,8 @@ else if (_isVisible)
             ["Field"] = FieldDefinition,
             ["IsEnabled"] = _isEnabled,
             ["IsReadOnly"] = _isReadOnly,
-            ["IsRequired"] = _isRequired
+            ["IsRequired"] = _isRequired,
+            ["ValueChanged"] = ValueChanged
         };
     }
 

@@ -358,11 +358,18 @@ Voir l’implémentation [ServiceCollectionExtensions.cs](C:/Users/jambert/sourc
     { "name": "Number", "kind": "Text" },
     { "name": "CustomerName", "kind": "Text" },
     { "name": "Origin", "kind": "Text" },
-    { "name": "Status", "kind": "Select", "widget": "select", "widgetOptions": ["Draft", "Confirmed", "Cancelled"] },
+    { "name": "Status", "kind": "Select", "searchWidget": "select", "searchWidgetOptions": ["Draft", "Confirmed", "Cancelled"] },
     { "name": "Amount", "kind": "Currency" }
   ]
 }
 ```
+
+Dans une SearchView, la recherche ciblée privilégie désormais :
+- `searchWidget` / `searchWidgetOptions` si présents
+- sinon `widget` / `widgetOptions`
+- sinon `kind` par défaut
+
+Cette règle évite d’interpréter les widgets destinés au formulaire/tableau comme widgets de filtre par défaut dans la SearchView.
 
 ### Kanban
 

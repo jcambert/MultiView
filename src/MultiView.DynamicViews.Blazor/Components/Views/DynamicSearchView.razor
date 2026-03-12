@@ -1,7 +1,9 @@
 @using MudBlazor
 @using MultiView.DynamicViews.Core.Abstractions
 @using MultiView.DynamicViews.Domain.Model
+@using MultiView.DynamicViews.Blazor.Components.Fields
 @using System.Globalization
+@using System.Text.Json
 
 <MudPaper Class="p-3">
     @if (string.IsNullOrWhiteSpace(Definition.Title) == false)
@@ -10,7 +12,7 @@
     }
 
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
-        Saisissez un terme pour filtrer les résultats.
+        Définissez un filtre texte et/ou des critères ciblés.
     </MudText>
 
     <MudTextField
@@ -24,10 +26,26 @@
         Clearable="true"
         Class="mb-3" />
 
+    <MudGrid Class="mb-4" Spacing="2">
+        @foreach (ViewFieldDefinition fieldDefinition in SearchFields)
+        {
+            <MudItem xs="12" sm="@(GetFilterWidth(fieldDefinition))">
+                <DynamicFieldRenderer
+                    @key="fieldDefinition.Name"
+                    Record="_filterRecord"
+                    FieldDefinition="fieldDefinition"
+                    EnabledDefault="true"
+                    VisibleDefault="true"
+                    DisplayOnlyMode="false"
+                    ValueChanged="OnFilterValueChanged" />
+            </MudItem>
+        }
+    </MudGrid>
+
     @if (FilteredRecords.Count == 0)
     {
         <MudAlert Severity="Severity.Info" Elevation="0">
-            Aucun résultat pour <strong>@SearchText</strong>.
+            Aucun résultat.
         </MudAlert>
     }
     else
@@ -61,15 +79,52 @@
     [Parameter]
     public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
 
+    private readonly Dictionary<string, object?> _filters = new(StringComparer.OrdinalIgnoreCase);
     private string SearchText { get; set; } = string.Empty;
+    private object _filterRecord => _filters;
+
+    private IReadOnlyList<ViewFieldDefinition> SearchFields =>
+        Definition.SearchFields.Count > 0
+            ? Definition.SearchFields
+                .Select(fieldName => Definition.Fields.FirstOrDefault(fieldDefinition =>
+                    string.Equals(fieldDefinition.Name, fieldName, StringComparison.OrdinalIgnoreCase)))
+                .Where(fieldDefinition => fieldDefinition is not null)
+                .Select(CreateSearchFieldDefinition)
+                .OfType<ViewFieldDefinition>()
+                .ToList()!
+            : Definition.Fields
+                .Select(CreateSearchFieldDefinition)
+                .OfType<ViewFieldDefinition>()
+                .ToList();
 
     private IReadOnlyList<string> Columns => Definition.SearchFields.Count > 0
         ? Definition.SearchFields
-        : Definition.Fields.Select(viewField => viewField.Name).ToList();
+        : Definition.Fields.Select(viewFieldDefinition => viewFieldDefinition.Name).ToList();
 
-    private IReadOnlyList<object> FilteredRecords => string.IsNullOrWhiteSpace(SearchText)
-        ? Records
-        : [.. Records.Where(MatchesSearch)];
+    private IReadOnlyList<object> FilteredRecords
+    {
+        get
+        {
+            IEnumerable<object> source = Records;
+
+            if (HasFilterCriteria())
+            {
+                source = source.Where(MatchesFilters);
+            }
+
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                source = source.Where(MatchesSearch);
+            }
+
+            return [.. source];
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        EnsureFilterKeys();
+    }
 
     private bool MatchesSearch(object record)
     {
@@ -82,6 +137,124 @@
         return Columns
             .Select(column => FormatValue(record, column))
             .Any(value => value.Contains(query, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool MatchesFilters(object record)
+    {
+        foreach (ViewFieldDefinition field in SearchFields)
+        {
+            if (!_filters.TryGetValue(field.Name, out object? filterValue) || !HasValueForFilter(filterValue))
+            {
+                continue;
+            }
+
+            object? recordValue = PropertyAccessor.GetValue(record, field.Name);
+            if (!MatchesFilterValue(recordValue, filterValue, field))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool HasValueForFilter(object? value)
+    {
+        return value switch
+        {
+            null => false,
+            string text => !string.IsNullOrWhiteSpace(text),
+            _ => true
+        };
+    }
+
+    private bool MatchesFilterValue(object? recordValue, object? filterValue, ViewFieldDefinition field)
+    {
+        if (recordValue is null || filterValue is null)
+        {
+            return false;
+        }
+
+        string resolvedSearchWidget = string.IsNullOrWhiteSpace(field.Widget)
+            ? field.Kind.ToString()
+            : field.Widget;
+        bool isDropdown = string.Equals(
+            resolvedSearchWidget,
+            "select",
+            StringComparison.OrdinalIgnoreCase);
+
+        if (isDropdown)
+        {
+            return string.Equals(recordValue.ToString(), filterValue.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (field.Kind == ViewFieldKind.Boolean && filterValue is bool expectedBoolean)
+        {
+            return TryConvertToBoolean(recordValue, out bool currentBoolean) && expectedBoolean == currentBoolean;
+        }
+
+        string filterText = filterValue.ToString() ?? string.Empty;
+        string recordText = recordValue.ToString() ?? string.Empty;
+
+        return recordText.Contains(filterText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool HasFilterCriteria()
+    {
+        return _filters.Values.Any(HasValueForFilter);
+    }
+
+    private int GetFilterWidth(ViewFieldDefinition fieldDefinition)
+    {
+        return fieldDefinition.Kind == ViewFieldKind.Boolean ? 2 : 4;
+    }
+
+    private static bool TryConvertToBoolean(object value, out bool booleanValue)
+    {
+        if (value is bool valueAsBoolean)
+        {
+            booleanValue = valueAsBoolean;
+            return true;
+        }
+
+        if (value is string valueAsString && bool.TryParse(valueAsString, out booleanValue))
+        {
+            return true;
+        }
+
+        if (value is int intValue)
+        {
+            booleanValue = intValue != 0;
+            return true;
+        }
+
+        if (value is decimal decimalValue)
+        {
+            booleanValue = decimalValue != 0m;
+            return true;
+        }
+
+        booleanValue = false;
+        return false;
+    }
+
+    private void EnsureFilterKeys()
+    {
+        foreach (ViewFieldDefinition fieldDefinition in SearchFields)
+        {
+            if (!_filters.ContainsKey(fieldDefinition.Name))
+            {
+                _filters[fieldDefinition.Name] = null;
+            }
+        }
+
+        foreach (string key in _filters.Keys
+                     .Where(key => SearchFields.All(fieldDefinition =>
+                         !string.Equals(fieldDefinition.Name, key, StringComparison.OrdinalIgnoreCase)))
+                     .ToList())
+        {
+            _filters.Remove(key);
+        }
     }
 
     private string FormatValue(object record, string field)
@@ -99,6 +272,7 @@
             decimal amount => amount.ToString("N2", CultureInfo.InvariantCulture),
             double amount => amount.ToString("N2", CultureInfo.InvariantCulture),
             float amount => amount.ToString("N2", CultureInfo.InvariantCulture),
+            bool booleanValue => booleanValue ? "Oui" : "Non",
             _ => value.ToString() ?? string.Empty
         };
     }
@@ -106,5 +280,44 @@
     private static string GetColumnTitle(string field)
     {
         return field;
+    }
+
+    private static ViewFieldDefinition? CreateSearchFieldDefinition(ViewFieldDefinition? source)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        string? resolvedSearchWidget = string.IsNullOrWhiteSpace(source.SearchWidget)
+            ? source.Widget
+            : source.SearchWidget;
+
+        JsonElement? resolvedSearchOptions = source.SearchWidgetOptions ?? source.WidgetOptions;
+
+        if (string.IsNullOrWhiteSpace(source.SearchLabel)
+            && string.IsNullOrWhiteSpace(resolvedSearchWidget)
+            && resolvedSearchOptions is null)
+        {
+            return source;
+        }
+
+        return new ViewFieldDefinition
+        {
+            Name = source.Name,
+            Label = string.IsNullOrWhiteSpace(source.SearchLabel) ? source.Label : source.SearchLabel,
+            Kind = source.Kind,
+            Widget = resolvedSearchWidget,
+            Format = source.Format,
+            CssClass = source.CssClass,
+            DefaultValue = source.DefaultValue,
+            WidgetOptions = resolvedSearchOptions,
+            Rules = source.Rules
+        };
+    }
+
+    private void OnFilterValueChanged(object? _)
+    {
+        StateHasChanged();
     }
 }
