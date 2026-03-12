@@ -1,0 +1,65 @@
+@using MudBlazor
+@using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Domain.Model
+
+<MudPaper Class="p-3">
+    @if (string.IsNullOrWhiteSpace(Definition.Title) == false)
+    {
+        <MudText Typo="Typo.h5" Class="mb-3">@Definition.Title</MudText>
+    }
+
+    <MudGrid>
+        @foreach (var stage in GroupedRecords)
+        {
+            <MudItem xs="12" sm="6" md="4" lg="3">
+                <MudPaper Class="pa-2" Elevation="1" Outlined="true">
+                    <MudText Typo="Typo.h6" Class="mb-3">@stage.Key</MudText>
+
+                    <MudStack Spacing="2">
+                        @foreach (object record in stage.Value)
+                        {
+                            <MudPaper Class="pa-2" Elevation="0">
+                                <MudText Typo="Typo.subtitle2">@GetValue(record, Definition.Card.HeaderField)</MudText>
+                                <MudText Typo="Typo.body2" Class="mb-2">@GetValue(record, Definition.Card.FooterField)</MudText>
+
+                                @foreach (string detail in Definition.Card.DetailFields)
+                                {
+                                    <div class="mb-1">
+                                        <small>@detail</small>
+                                        <div>@GetValue(record, detail)</div>
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(Definition.Card.ColorField))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Info">@GetValue(record, Definition.Card.ColorField)</MudText>
+                                }
+                            </MudPaper>
+                        }
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+</MudPaper>
+
+@code {
+    [Inject]
+    private MultiView.DynamicViews.Core.Abstractions.IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
+
+    [Parameter]
+    public KanbanViewDefinition Definition { get; set; } = null!;
+
+    [Parameter]
+    public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
+
+    private IReadOnlyDictionary<string, IReadOnlyList<object>> GroupedRecords => Records
+        .GroupBy(record => GetValue(record, Definition.GroupByField) ?? "Non défini")
+        .ToDictionary(group => group.Key, group => (IReadOnlyList<object>)group.ToList(), StringComparer.OrdinalIgnoreCase);
+
+    private string? GetValue(object record, string field)
+    {
+        object? value = PropertyAccessor.GetValue(record, field);
+        return value?.ToString();
+    }
+}

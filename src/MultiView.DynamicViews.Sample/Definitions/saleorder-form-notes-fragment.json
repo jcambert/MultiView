@@ -1,0 +1,20 @@
+{
+  "id": "saleorder_form_notes_fragment",
+  "name": "saleorder.form.notes",
+  "kind": "Form",
+  "model": "SaleOrder",
+  "title": "Bloc notes",
+  "fields": [
+    { "name": "Amount", "label": "Montant", "kind": "Currency" },
+    { "name": "Currency", "label": "Devise", "kind": "Select", "widget": "select", "widgetOptions": ["EUR","USD","GBP"] },
+    { "name": "Origin", "label": "Origine", "kind": "Text", "rules": { "visible": "Status != 'Cancelled'" } }
+  ],
+  "sections": [
+    {
+      "id": "extra",
+      "label": "Montants et origine",
+      "columns": 1,
+      "fields": ["Amount", "Currency", "Origin"]
+    }
+  ]
+}

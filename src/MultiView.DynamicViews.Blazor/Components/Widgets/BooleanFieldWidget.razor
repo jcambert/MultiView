@@ -1,0 +1,26 @@
+@using MudBlazor
+@inherits FieldWidgetBase
+
+<MudCheckBox T="bool"
+    Label="@Label"
+    Class="@Field.CssClass"
+    Value="_isChecked"
+    ValueChanged="HandleChanged"
+    Disabled="@(!IsEnabled)"
+    ReadOnly="@IsReadOnly" />
+
+@code {
+    private bool _isChecked;
+
+    protected override void OnParametersSet()
+    {
+        _isChecked = GetValue() is true;
+    }
+
+    private Task HandleChanged(bool value)
+    {
+        _isChecked = value;
+        SetValue(value);
+        return Task.CompletedTask;
+    }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "saleorder_form",
+  "name": "saleorder.form",
+  "extends": "saleorder_form_base",
+  "kind": "Form",
+  "model": "SaleOrder",
+  "title": "Commande de vente (héritée)",
+  "composition": {
+    "includes": ["saleorder_form_notes_fragment"],
+    "removeFields": ["SalesTeam"]
+  },
+  "fields": [
+    { "name": "Number", "label": "N° commande", "kind": "Text", "rules": { "readonly": "Status == 'Confirmed'" } },
+    { "name": "Amount", "label": "Montant", "kind": "Currency", "rules": { "readonly": "Status == 'Cancelled'" } },
+    { "name": "Currency", "label": "Devise", "kind": "Select", "widget": "select", "widgetOptions": ["EUR","USD","GBP"], "rules": { "readonly": "Status == 'Cancelled'" } },
+    { "name": "Confirmed", "label": "Confirmée", "kind": "Boolean" }
+  ],
+  "sections": [
+    {
+      "id": "main",
+      "label": "Principale",
+      "columns": 2,
+      "fields": ["Number", "CustomerName", "OrderDate", "Status", "Amount", "Currency", "Confirmed"]
+    },
+    {
+      "id": "extra",
+      "label": "Complément",
+      "columns": 1,
+      "fields": ["Origin", "Notes"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "toggle_confirm",
+      "label": "Confirmer / Réouvrir",
+      "enabledRule": "Status != 'Cancelled'"
+    }
+  ]
+}

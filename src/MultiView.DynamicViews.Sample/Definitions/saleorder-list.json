@@ -1,0 +1,29 @@
+{
+  "id": "saleorder_list",
+  "name": "saleorder.list",
+  "kind": "List",
+  "model": "SaleOrder",
+  "title": "Liste des commandes",
+  "fields": [
+    { "name": "Number", "label": "N°", "kind": "Text" },
+    { "name": "CustomerName", "label": "Client", "kind": "Text" },
+    { "name": "Amount", "label": "Montant", "kind": "Currency" },
+    { "name": "OrderDate", "label": "Date", "kind": "Date" },
+    { "name": "Status", "label": "État", "kind": "Select", "widget": "select", "widgetOptions": ["Draft","Confirmed","Cancelled"] },
+    { "name": "Confirmed", "label": "Confirmée", "kind": "Boolean" }
+  ],
+  "columns": [
+    { "field": "Number", "header": "N°" },
+    { "field": "CustomerName", "header": "Client" },
+    { "field": "Amount", "header": "Montant" },
+    { "field": "Status", "header": "État" },
+    { "field": "Confirmed", "header": "Confirmée" }
+  ],
+  "actions": [
+    {
+      "name": "toggle_confirm",
+      "label": "Confirmer / Réouvrir",
+      "enabledRule": "Status != 'Cancelled'"
+    }
+  ]
+}

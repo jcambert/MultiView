@@ -1,0 +1,89 @@
+@using MudBlazor
+@using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Domain.Model
+@using System.Globalization
+
+<MudPaper Class="p-3">
+@if (string.IsNullOrWhiteSpace(Definition.Title) == false)
+    {
+        <MudText Typo="Typo.h5" Class="mb-3">@Definition.Title</MudText>
+    }
+
+    <MudTable T="object" Items="@Records" Hover="true" Dense="true" Elevation="0" @key="Definition.Id">
+        <HeaderContent>
+            @foreach (ListColumnDefinition column in Definition.Columns)
+            {
+                <MudTh>@(column.Header ?? column.Field)</MudTh>
+            }
+        </HeaderContent>
+        <RowTemplate Context="record">
+            @foreach (ListColumnDefinition column in Definition.Columns)
+            {
+                ViewFieldDefinition? fieldDefinition = GetFieldDefinition(column.Field);
+                <MudTd DataLabel="@(column.Header ?? column.Field)" @key="GetCellKey(record, column.Field)">
+                    @if (fieldDefinition is not null)
+                    {
+                        <DynamicFieldRenderer
+                            @key="GetCellKey(record, fieldDefinition.Name)"
+                            Record="@record"
+                            FieldDefinition="@fieldDefinition"
+                            DisplayOnlyMode="true"
+                            EnabledDefault="false"
+                            VisibleDefault="true" />
+                    }
+                    else
+                    {
+                        <span>@FormatFallback(record, column.Field)</span>
+                    }
+                </MudTd>
+            }
+        </RowTemplate>
+    </MudTable>
+</MudPaper>
+
+@code {
+    [Inject]
+    private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
+
+    [Parameter]
+    public ListViewDefinition Definition { get; set; } = null!;
+
+    [Parameter]
+    public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
+
+    private ViewFieldDefinition? GetFieldDefinition(string field)
+    {
+        return Definition.Fields.FirstOrDefault(fieldDefinition =>
+            string.Equals(fieldDefinition.Name, field, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string FormatFallback(object record, string field)
+    {
+        if (record is null || string.IsNullOrWhiteSpace(field))
+        {
+            return string.Empty;
+        }
+
+        object? value = PropertyAccessor.GetValue(record, field);
+        return value switch
+        {
+            null => string.Empty,
+            DateTime dateTime => dateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            decimal decimalValue => decimalValue.ToString("N2", CultureInfo.InvariantCulture),
+            double doubleValue => doubleValue.ToString("N2", CultureInfo.InvariantCulture),
+            _ => value.ToString() ?? string.Empty
+        };
+    }
+
+    private string GetCellKey(object record, string fieldName)
+    {
+        string recordKey = GetRecordKey(record);
+        return $"{recordKey}:{fieldName}";
+    }
+
+    private string GetRecordKey(object record)
+    {
+        object? id = PropertyAccessor.GetValue(record, "Id");
+        return id?.ToString() ?? record.GetHashCode().ToString("X");
+    }
+}

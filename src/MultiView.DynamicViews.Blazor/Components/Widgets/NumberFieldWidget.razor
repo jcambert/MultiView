@@ -1,0 +1,46 @@
+@using MudBlazor
+@inherits FieldWidgetBase
+
+<MudNumericField
+    T="decimal?"
+    Class="@Field.CssClass"
+    Label="@Label"
+    @bind-Value="_value"
+    Disabled="@(!IsEnabled)"
+    ReadOnly="@IsReadOnly"
+    Required="@IsRequired"
+    Format="@("N2")"
+    Immediate="true"
+    Margin="Margin.Dense"
+    OnBlur="@(_ => PersistValue())" />
+
+@code {
+    private decimal? _value;
+
+    protected override void OnParametersSet()
+    {
+        object? current = GetValue();
+
+        if (current is null)
+        {
+            _value = null;
+            return;
+        }
+
+        _value = current switch
+        {
+            decimal decimalValue => decimalValue,
+            int intValue => intValue,
+            long longValue => longValue,
+            double doubleValue => Convert.ToDecimal(doubleValue),
+            float floatValue => Convert.ToDecimal(floatValue),
+            string stringValue when decimal.TryParse(stringValue, out decimal parsed) => parsed,
+            _ => null
+        };
+    }
+
+    private void PersistValue()
+    {
+        SetValue(_value);
+    }
+}

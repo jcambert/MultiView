@@ -1,0 +1,61 @@
+@using MudBlazor
+@using System.Text.Json
+@inherits FieldWidgetBase
+
+<MudSelect T="string"
+    Label="@Label"
+    Value="@_value"
+    ValueChanged="OnValueChanged"
+    Disabled="@(!IsEnabled)"
+    ReadOnly="@IsReadOnly"
+    Required="@IsRequired"
+    Margin="Margin.Dense">
+    @if (_options is not null)
+    {
+        @foreach (string option in _options)
+        {
+            <MudSelectItem Value="@option">@option</MudSelectItem>
+        }
+    }
+</MudSelect>
+
+@code {
+    private string? _value;
+    private IReadOnlyList<string>? _options;
+
+    protected override void OnParametersSet()
+    {
+        _value = GetValue()?.ToString();
+        _options = ExtractOptions();
+    }
+
+    private IReadOnlyList<string>? ExtractOptions()
+    {
+        if (Field.WidgetOptions is not JsonElement options)
+        {
+            return null;
+        }
+
+        if (options.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var values = new List<string>();
+        foreach (JsonElement item in options.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                values.Add(item.GetString() ?? string.Empty);
+            }
+        }
+
+        return values;
+    }
+
+    private void OnValueChanged(string? value)
+    {
+        _value = value;
+        SetValue(value);
+    }
+}

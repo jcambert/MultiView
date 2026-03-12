@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MultiView.DynamicViews.Blazor/MultiView.DynamicViews.Blazor.csproj" />
+    <Project Path="src/MultiView.DynamicViews.Core/MultiView.DynamicViews.Core.csproj" />
+    <Project Path="src/MultiView.DynamicViews.Domain/MultiView.DynamicViews.Domain.csproj" />
+    <Project Path="src/MultiView.DynamicViews.Sample/MultiView.DynamicViews.Sample.csproj" />
+  </Folder>
+</Solution>

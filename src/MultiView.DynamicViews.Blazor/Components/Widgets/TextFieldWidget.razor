@@ -1,0 +1,28 @@
+@using MudBlazor
+@inherits FieldWidgetBase
+
+<MudTextField
+    T="string"
+    Class="@Field.CssClass"
+    Label="@Label"
+    @bind-Value="_value"
+    Required="@IsRequired"
+    Disabled="@(!IsEnabled)"
+    ReadOnly="@IsReadOnly"
+    Immediate="true"
+    Margin="Margin.Dense"
+    OnBlur="@(_ => PersistValue())" />
+
+@code {
+    private string? _value;
+
+    protected override void OnParametersSet()
+    {
+        _value = GetValue()?.ToString();
+    }
+
+    private void PersistValue()
+    {
+        SetValue(_value);
+    }
+}

@@ -1,0 +1,43 @@
+@using MudBlazor
+@inherits FieldWidgetBase
+
+<MudDatePicker
+    Label="@Label"
+    Class="@Field.CssClass"
+    Date="_date"
+    DateChanged="PersistValue"
+    Disabled="@(!IsEnabled)"
+    ReadOnly="@IsReadOnly"
+    Required="@IsRequired"
+    DateFormat="yyyy-MM-dd"
+    Margin="Margin.Dense"
+    />
+
+@code {
+    private DateTime? _date;
+    private object? _rawValue;
+
+    protected override void OnParametersSet()
+    {
+        _rawValue = GetValue();
+        if (_rawValue is DateTime dateTime)
+        {
+            _date = dateTime;
+            return;
+        }
+
+        if (_rawValue is not null && DateTime.TryParse(_rawValue.ToString(), out DateTime parsed))
+        {
+            _date = parsed;
+            return;
+        }
+
+        _date = null;
+    }
+
+    private void PersistValue(DateTime? value)
+    {
+        _date = value;
+        SetValue(value);
+    }
+}

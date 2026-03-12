@@ -1,0 +1,30 @@
+{
+  "id": "saleorder_form_base",
+  "name": "saleorder.form.base",
+  "kind": "Form",
+  "model": "SaleOrder",
+  "title": "Base commande de vente",
+  "fields": [
+    { "name": "Number", "label": "N° de commande", "kind": "Text", "rules": { "required": "true" } },
+    { "name": "CustomerName", "label": "Client", "kind": "Text", "rules": { "required": "true" } },
+    { "name": "SalesTeam", "label": "Équipe commerciale", "kind": "Text" },
+    { "name": "OrderDate", "label": "Date", "kind": "Date", "rules": { "required": "true" } },
+    { "name": "Status", "label": "État", "kind": "Select", "widget": "select", "widgetOptions": ["Draft","Confirmed","Cancelled"], "rules": { "required": "true" } },
+    { "name": "Notes", "label": "Notes", "kind": "Text", "rules": { "visible": "Status != 'Cancelled'" } }
+  ],
+  "sections": [
+    {
+      "id": "main",
+      "label": "Principale",
+      "columns": 2,
+      "fields": ["Number", "CustomerName", "SalesTeam", "OrderDate", "Status"]
+    }
+  ],
+  "actions": [
+    {
+      "name": "toggle_confirm",
+      "label": "Confirmer",
+      "enabledRule": "Status != 'Cancelled'"
+    }
+  ]
+}

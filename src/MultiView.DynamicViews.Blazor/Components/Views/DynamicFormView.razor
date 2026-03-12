@@ -1,0 +1,126 @@
+@using MudBlazor
+@using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Core.Caching
+@using MultiView.DynamicViews.Core.RuleEvaluator
+@using MultiView.DynamicViews.Domain.Model
+
+<MudPaper Class="p-4">
+    @if (string.IsNullOrWhiteSpace(Definition.Title) == false)
+    {
+        <MudText Typo="Typo.h5" Class="mb-3">@Definition.Title</MudText>
+    }
+
+    @if (Sections.Count == 0)
+    {
+        <MudGrid>
+            @foreach (ViewFieldDefinition field in Definition.Fields)
+            {
+                <MudItem xs="12">
+                    <DynamicFieldRenderer Record="@Record" FieldDefinition="@field" GlobalContext="@GlobalContext" />
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        @foreach (FormSectionDefinition section in Sections)
+        {
+            <MudPaper Class="p-3 mb-3" Elevation="1">
+                <MudText Typo="Typo.h6" Class="mb-3">@(section.Label ?? $"Section {section.Id}")</MudText>
+                <MudGrid>
+                    @foreach (ViewFieldDefinition field in GetSectionFields(section))
+                    {
+                        <MudItem xs="12" sm="@(12 / Math.Max(1, section.Columns))">
+                            <DynamicFieldRenderer Record="@Record" FieldDefinition="@field" GlobalContext="@GlobalContext" />
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudPaper>
+        }
+    }
+
+    @if (Definition.Actions.Count > 0)
+    {
+        <MudDivider Class="my-3" />
+        <div class="d-flex gap-2">
+            @foreach (ViewActionDefinition action in Definition.Actions)
+            {
+                @if (IsActionVisible(action) && IsActionEnabled(action))
+                {
+                    <MudButton OnClick="@(() => HandleActionAsync(action))" Variant="Variant.Filled" Color="Color.Primary">
+                        @action.Label
+                    </MudButton>
+                }
+            }
+        </div>
+    }
+</MudPaper>
+
+@code {
+    [Inject]
+    private IViewActionDispatcher ActionDispatcher { get; set; } = null!;
+
+    [Inject]
+    private IServiceProvider Services { get; set; } = null!;
+
+    [Inject]
+    private IRuleEvaluator RuleEvaluator { get; set; } = null!;
+
+    [Inject]
+    private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
+
+    [Parameter]
+    public FormViewDefinition Definition { get; set; } = null!;
+
+    [Parameter]
+    public object Record { get; set; } = null!;
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object?>? GlobalContext { get; set; }
+
+    private IReadOnlyList<FormSectionDefinition> Sections => Definition.Sections;
+
+    private IEnumerable<ViewFieldDefinition> GetSectionFields(FormSectionDefinition section)
+    {
+        return section.Fields
+            .Select(name => Definition.Fields.FirstOrDefault(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            .Where(field => field is not null)!;
+    }
+
+    private bool IsActionVisible(ViewActionDefinition action)
+    {
+        if (string.IsNullOrWhiteSpace(action.VisibilityRule))
+        {
+            return true;
+        }
+
+        var ruleContext = new RecordRuleValueAccessor(PropertyAccessor, Record, GlobalContext);
+        return RuleEvaluator.Evaluate(action.VisibilityRule, ruleContext);
+    }
+
+    private bool IsActionEnabled(ViewActionDefinition action)
+    {
+        if (string.IsNullOrWhiteSpace(action.EnabledRule))
+        {
+            return true;
+        }
+
+        var ruleContext = new RecordRuleValueAccessor(PropertyAccessor, Record, GlobalContext);
+        return RuleEvaluator.Evaluate(action.EnabledRule, ruleContext);
+    }
+
+    private async Task HandleActionAsync(ViewActionDefinition action)
+    {
+        ViewActionContext context = new(
+            ViewDefinition: Definition,
+            Action: action,
+            SelectedRecords: new[] { Record },
+            CurrentRecord: Record,
+            Services: Services,
+            Metadata: GlobalContext is null
+                ? new Dictionary<string, object?>()
+                : new Dictionary<string, object?>(GlobalContext));
+
+        await ActionDispatcher.DispatchAsync(context);
+    }
+}

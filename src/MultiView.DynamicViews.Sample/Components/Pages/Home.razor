@@ -1,0 +1,263 @@
+@page "/"
+@using MudBlazor
+@using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Domain.Model
+@using MultiView.DynamicViews.Blazor
+@using MultiView.DynamicViews.Sample.Data
+@using MultiView.DynamicViews.Sample.Models
+@using System.Globalization
+
+<PageTitle>Dynamic Views</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6 mb-8 home-shell">
+    <MudPaper Class="home-hero p-5 mb-4 reveal-card home-glow" Elevation="0" Style="--reveal-delay:0.05s">
+        <MudStack Spacing="2">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudAvatar Size="Size.Large" Color="Color.Primary" Class="hero-avatar">
+                    <MudText Typo="Typo.h5" Class="font-weight-bold">V</MudText>
+                </MudAvatar>
+                <div>
+                    <MudText Typo="Typo.h3" Class="font-weight-bold">Vue dynamique métier</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Démonstration d’un framework déclaratif (Form, List, Kanban) avec héritage, composition et règles métier.
+                    </MudText>
+                </div>
+            </MudStack>
+
+            <MudDivider Class="my-2" />
+
+            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.subtitle2" Color="Color.Default">Vue active :</MudText>
+                <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small">@currentViewTitle</MudChip>
+                <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined" Size="Size.Small">@saleOrderRecords.Count enregistrements</MudChip>
+                <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small">
+                    @($"Total {TotalAmount:N2} {CurrencySymbol}")
+                </MudChip>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    <MudGrid Spacing="3" Class="mb-4">
+        <MudItem xs="12" md="4">
+            <MudPaper Class="p-4 control-card reveal-card glass-card" Elevation="1" Style="--reveal-delay:0.10s">
+                <MudText Typo="Typo.h6" Class="mb-2">Mode d’affichage</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                    Sélectionnez la vue pour visualiser le même objet métier sous un autre angle.
+                </MudText>
+
+                <MudSelect T="string" Label="Vue" @bind-Value="selectedViewId" Variant="Variant.Outlined" FullWidth="true">
+                    @foreach (ViewOption view in viewOptions)
+                    {
+                        <MudSelectItem Value="@view.Id">@view.Label</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudStack Row="true" Spacing="1" Class="mt-3" Wrap="Wrap.Wrap">
+                    @foreach (ViewOption view in viewOptions)
+                    {
+                        <MudButton
+                            Color="@(selectedViewId == view.Id ? Color.Primary : Color.Default)"
+                            OnClick="() => SelectView(view.Id)"
+                            Variant="@(selectedViewId == view.Id ? Variant.Filled : Variant.Outlined)"
+                            Size="Size.Small"
+                            Class="view-mode-button">
+                            @view.Label
+                        </MudButton>
+                    }
+                </MudStack>
+
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-3">
+                    @currentViewDescription
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Class="p-4 control-card reveal-card glass-card" Elevation="1" Style="--reveal-delay:0.16s">
+                <MudText Typo="Typo.h6" Class="mb-2">Commande active</MudText>
+
+                <MudSelect
+                    T="Guid"
+                    Disabled="@(!HasRecords)"
+                    Label="Sélectionner une commande"
+                    @bind-Value="selectedRecordId"
+                    Variant="Variant.Outlined"
+                    FullWidth="true">
+                    @foreach (SaleOrder record in saleOrderRecords)
+                    {
+                        <MudSelectItem Value="@record.Id">@FormatRecordLabel(record)</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudStack Row="true" Spacing="1" Class="mt-3" AlignItems="AlignItems.Center">
+                    <MudChip T="string" Color="@GetStatusColor(currentRecord.Status)" Variant="Variant.Filled" Size="Size.Small">
+                        @currentRecord.Status
+                    </MudChip>
+                    <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">
+                        @currentRecord.Currency
+                    </MudChip>
+                </MudStack>
+
+                <MudText Typo="Typo.subtitle2" Class="mt-2">@currentRecord.CustomerName</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@currentRecord.Notes</MudText>
+
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.caption">Référence : @currentRecord.Number</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Créée le @currentRecord.OrderDate.ToString("dd/MM/yyyy")
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Class="p-4 control-card reveal-card glass-card" Elevation="1" Style="--reveal-delay:0.22s">
+                <MudText Typo="Typo.h6" Class="mb-2">Résultats</MudText>
+                <MudSimpleTable Dense="true" Class="result-table">
+                    <tbody>
+                        <tr>
+                            <td>Nombre total</td>
+                            <td><MudText Typo="Typo.body2" Class="font-weight-bold">@saleOrderRecords.Count</MudText></td>
+                        </tr>
+                        <tr>
+                            <td>Montant cumulé</td>
+                            <td><MudText Typo="Typo.body2" Class="font-weight-bold">@TotalAmount.ToString("N2", CultureInfo.InvariantCulture) @CurrencySymbol</MudText></td>
+                        </tr>
+                        <tr>
+                            <td>Commandes confirmées</td>
+                            <td><MudText Typo="Typo.body2" Class="font-weight-bold">@ConfirmedCount</MudText></td>
+                        </tr>
+                        <tr>
+                            <td>Annulées</td>
+                            <td><MudText Typo="Typo.body2" Class="font-weight-bold">@CancelledCount</MudText></td>
+                        </tr>
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="12">
+            <MudPaper Class="p-4 control-card reveal-card glass-card" Elevation="1" Style="--reveal-delay:0.28s">
+                <MudText Typo="Typo.h6" Class="mb-2">Indicateurs</MudText>
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="status-label">Taux de confirmation</MudText>
+                        <MudProgressLinear Value="@ConfirmationRate" Max="100" Color="Color.Success" Class="mt-1 kpi-progress" />
+                        <MudText Typo="Typo.body2" Class="font-weight-bold mt-2">@($"{ConfirmationRate:0}%")</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="status-label">Taux d’annulation</MudText>
+                        <MudProgressLinear Value="@CancellationRate" Max="100" Color="Color.Error" Class="mt-1 kpi-progress" />
+                        <MudText Typo="Typo.body2" Class="font-weight-bold mt-2">@($"{CancellationRate:0}%")</MudText>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="viewer-shell p-1 reveal-card" Elevation="1" Style="--reveal-delay:0.34s">
+            <MudPaper Class="pa-3 glass-card" Elevation="0">
+            <DynamicViewRenderer
+                @key="selectedViewId"
+                Definition="@viewDefinitions[selectedViewId]"
+                Record="@currentRecord"
+                Records="@recordsForRenderer"
+                GlobalContext="@rendererContext" />
+        </MudPaper>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [Inject]
+    private IViewDefinitionStore ViewDefinitionStore { get; set; } = null!;
+
+    [Inject]
+    private IDataProvider<SaleOrder> DataProvider { get; set; } = null!;
+
+    private sealed record ViewOption(string Id, string Label, string Description);
+
+    private readonly Dictionary<string, DynamicViewDefinition> viewDefinitions = new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly List<ViewOption> viewOptions =
+    [
+        new("saleorder_form", "Form", "Formulaire éditable"),
+        new("saleorder_list", "List", "Vue tabulaire"),
+        new("saleorder_kanban", "Kanban", "Vue carte par colonnes")
+    ];
+
+    private List<SaleOrder> saleOrderRecords = [];
+    private string selectedViewId = "saleorder_form";
+    private Guid selectedRecordId = Guid.Empty;
+    private IReadOnlyList<object> recordsForRenderer = Array.Empty<object>();
+
+    private string CurrencySymbol => "EUR";
+    private Dictionary<string, object?> rendererContext =>
+        new()
+        {
+            ["RenderedAt"] = DateTime.UtcNow,
+            ["ViewMode"] = selectedViewId
+        };
+
+    private ViewOption CurrentViewOption => viewOptions.First(option => option.Id.Equals(selectedViewId, StringComparison.OrdinalIgnoreCase));
+    private string currentViewTitle => CurrentViewOption.Label;
+    private string currentViewDescription => CurrentViewOption.Description;
+
+    private SaleOrder currentRecord => currentSelectedRecord ?? new SaleOrder();
+    private SaleOrder? currentSelectedRecord => saleOrderRecords.FirstOrDefault(item => item.Id == selectedRecordId);
+    private bool HasRecords => saleOrderRecords.Count > 0;
+
+    private decimal TotalAmount => saleOrderRecords.Sum(order => order.Amount);
+    private int ConfirmedCount => saleOrderRecords.Count(order => order.Confirmed);
+    private int CancelledCount => saleOrderRecords.Count(order => order.Status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase));
+    private double ConfirmationRate => saleOrderRecords.Count == 0
+        ? 0
+        : Math.Round((double)ConfirmedCount / saleOrderRecords.Count * 100, 0);
+    private double CancellationRate => saleOrderRecords.Count == 0
+        ? 0
+        : Math.Round((double)CancelledCount / saleOrderRecords.Count * 100, 0);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDefinitionsAsync();
+        await LoadRecordsAsync();
+
+        if (saleOrderRecords.Count > 0)
+        {
+            selectedRecordId = saleOrderRecords.First().Id;
+        }
+    }
+
+    private async Task LoadDefinitionsAsync()
+    {
+        foreach (ViewOption option in viewOptions)
+        {
+            viewDefinitions[option.Id] = await ViewDefinitionStore.GetAsync(option.Id);
+        }
+    }
+
+    private async Task LoadRecordsAsync()
+    {
+        saleOrderRecords = (await DataProvider.ListAsync()).ToList();
+        recordsForRenderer = saleOrderRecords.Cast<object>().ToList();
+    }
+
+    private void SelectView(string id)
+    {
+        selectedViewId = id;
+    }
+
+    private string FormatRecordLabel(SaleOrder saleOrder)
+    {
+        return $"{saleOrder.Number} · {saleOrder.CustomerName} · {saleOrder.Amount:N2} {saleOrder.Currency}";
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Draft" => Color.Warning,
+            "Confirmed" => Color.Success,
+            "Cancelled" => Color.Error,
+            _ => Color.Default
+        };
+    }
+}

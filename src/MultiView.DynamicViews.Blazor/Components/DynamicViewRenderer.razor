@@ -1,0 +1,47 @@
+@using MudBlazor
+@using MultiView.DynamicViews.Domain.Model
+
+@if (Definition is null)
+{
+    <MudText Typo="Typo.body1" Color="Color.Warning">Aucune vue fournie.</MudText>
+}
+else
+{
+    @switch (Definition.Kind)
+    {
+        case DynamicViewKind.Form:
+            <DynamicFormView Definition="(FormViewDefinition)Definition" Record="RecordContext" GlobalContext="GlobalContext" />
+            break;
+        case DynamicViewKind.List:
+            <DynamicListView Definition="(ListViewDefinition)Definition" Records="RecordsContext" />
+            break;
+        case DynamicViewKind.Kanban:
+            <DynamicKanbanView Definition="(KanbanViewDefinition)Definition" Records="RecordsContext" />
+            break;
+        default:
+            <MudText Typo="Typo.body1" Color="Color.Warning">Le type de vue @Definition.Kind n\'est pas encore supporté.</MudText>
+            break;
+    }
+}
+
+@code {
+    [Parameter]
+    public DynamicViewDefinition Definition { get; set; } = null!;
+
+    [Parameter]
+    public object? Record { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object?>? GlobalContext { get; set; }
+
+    private object RecordContext => Record ?? throw new InvalidOperationException("Un enregistrement est requis pour afficher une vue de type Form.");
+
+    private IReadOnlyList<object> RecordsContext => Definition.Kind == DynamicViewKind.Form
+        ? Record is not null
+            ? new[] { RecordContext }
+            : Array.Empty<object>()
+        : Records;
+}

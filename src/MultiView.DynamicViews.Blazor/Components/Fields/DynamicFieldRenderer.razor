@@ -1,0 +1,116 @@
+@using MudBlazor
+@using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Core.RuleEvaluator
+@using MultiView.DynamicViews.Core.Widgets
+@using MultiView.DynamicViews.Domain.Model
+
+@if (_isVisible && _widgetType is not null)
+{
+    <DynamicComponent Type="@_widgetType" Parameters="@CreateFieldParameters()" />
+}
+else if (_isVisible)
+{
+    <MudText Typo="Typo.body2">@GetDisplayValue()</MudText>
+}
+
+@code {
+    [Inject]
+    private IFieldWidgetRegistry WidgetRegistry { get; set; } = null!;
+
+    [Inject]
+    private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
+
+    [Inject]
+    private IRuleEvaluator RuleEvaluator { get; set; } = null!;
+
+    [Parameter]
+    public object Record { get; set; } = null!;
+
+    [Parameter]
+    public ViewFieldDefinition FieldDefinition { get; set; } = null!;
+
+    [Parameter]
+    public bool VisibleDefault { get; set; } = true;
+
+    [Parameter]
+    public bool EnabledDefault { get; set; } = true;
+
+    [Parameter]
+    public bool ReadOnlyDefault { get; set; } = false;
+
+    [Parameter]
+    public bool RequiredDefault { get; set; } = false;
+
+    [Parameter]
+    public bool DisplayOnlyMode { get; set; }
+
+    [Parameter]
+    public IReadOnlyDictionary<string, object?>? GlobalContext { get; set; }
+
+    private bool _isVisible = true;
+    private bool _isEnabled = true;
+    private bool _isReadOnly = false;
+    private bool _isRequired = false;
+    private bool _isDisplayOnly;
+    private Type? _widgetType;
+
+    protected override void OnParametersSet()
+    {
+        if (Record is null || FieldDefinition is null)
+        {
+            _isVisible = false;
+            _widgetType = null;
+            return;
+        }
+
+        var context = new RecordRuleValueAccessor(PropertyAccessor, Record, GlobalContext);
+        _isVisible = Evaluate(FieldDefinition.Rules?.Visible, VisibleDefault, context);
+
+        if (!_isVisible)
+        {
+            _widgetType = null;
+            return;
+        }
+
+        _isEnabled = Evaluate(FieldDefinition.Rules?.Enabled, EnabledDefault, context);
+        _isReadOnly = Evaluate(FieldDefinition.Rules?.Readonly, ReadOnlyDefault, context);
+        _isRequired = Evaluate(FieldDefinition.Rules?.Required, RequiredDefault, context);
+        _isDisplayOnly = DisplayOnlyMode;
+
+        if (_isDisplayOnly)
+        {
+            _widgetType = null;
+            _isReadOnly = true;
+            return;
+        }
+
+        _widgetType = WidgetRegistry.Resolve(FieldDefinition);
+    }
+
+    private bool Evaluate(string? expression, bool fallback, RecordRuleValueAccessor context)
+    {
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return fallback;
+        }
+
+        return RuleEvaluator.Evaluate(expression, context);
+    }
+
+    private Dictionary<string, object?> CreateFieldParameters()
+    {
+        return new Dictionary<string, object?>
+        {
+            ["Record"] = Record,
+            ["Field"] = FieldDefinition,
+            ["IsEnabled"] = _isEnabled,
+            ["IsReadOnly"] = _isReadOnly,
+            ["IsRequired"] = _isRequired
+        };
+    }
+
+    private string GetDisplayValue()
+    {
+        return PropertyAccessor.GetValue(Record, FieldDefinition.Name)?.ToString() ?? string.Empty;
+    }
+}

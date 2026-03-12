@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MultiView.DynamicViews.Blazor\MultiView.DynamicViews.Blazor.csproj" />
+    <ProjectReference Include="..\MultiView.DynamicViews.Core\MultiView.DynamicViews.Core.csproj" />
+    <ProjectReference Include="..\MultiView.DynamicViews.Domain\MultiView.DynamicViews.Domain.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MudBlazor" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>
