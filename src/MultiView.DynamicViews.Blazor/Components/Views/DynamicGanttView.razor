@@ -1,0 +1,186 @@
+@using MudBlazor
+@using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Domain.Model
+@using System.Globalization
+
+<MudPaper Class="p-3">
+    @if (string.IsNullOrWhiteSpace(Definition.Title) == false)
+    {
+        <MudText Typo="Typo.h5" Class="mb-2">@Definition.Title</MudText>
+    }
+
+    @if (Rows.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Elevation="0">
+            Aucun événement à afficher.
+        </MudAlert>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true">
+            <thead>
+                <tr>
+                    <th>@(Definition.GroupByField ?? "Tâche")</th>
+                    <th>Période</th>
+                    <th>Progression</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach ((string label, string? group, DateTime start, DateTime end, double progress) in Rows)
+                {
+                    <tr>
+                        <td>
+                            <MudText Typo="Typo.subtitle2">@label</MudText>
+                            @if (!string.IsNullOrWhiteSpace(group))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@group</MudText>
+                            }
+                        </td>
+                        <td>
+                            <MudText Typo="Typo.body2">
+                                @start.ToString("dd/MM", CultureInfo.InvariantCulture) - @end.ToString("dd/MM", CultureInfo.InvariantCulture)
+                            </MudText>
+                        </td>
+                        <td>
+                            <div style="position:relative; width: 100%; min-height: 24px; background: var(--mud-palette-surface); border-radius: 6px; padding: 2px;">
+                                <div
+                                    style="@GetBarStyle(start, end)"
+                                    class="d-flex align-center justify-center">
+                                    <MudText Typo="Typo.caption" Class="mud-on-surface-text">@((progress).ToString("P0", CultureInfo.InvariantCulture))</MudText>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</MudPaper>
+
+@code {
+    [Inject]
+    private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
+
+    [Parameter]
+    public GanttViewDefinition Definition { get; set; } = null!;
+
+    [Parameter]
+    public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
+
+    private (DateTime Min, DateTime Max) Range => BuildRange();
+
+    private IReadOnlyList<(string Label, string? Group, DateTime Start, DateTime End, double Progress)> Rows =>
+        BuildRows();
+
+    private IReadOnlyList<(string Label, string? Group, DateTime Start, DateTime End, double Progress)> BuildRows()
+    {
+        List<(string Label, string? Group, DateTime Start, DateTime End, double Progress)> rows = [];
+        foreach (object record in Records)
+        {
+            DateTime start = GetDate(record, Definition.StartDateField);
+            DateTime end = GetDate(record, Definition.EndDateField, start);
+            if (start == default || end == default)
+            {
+                continue;
+            }
+
+            if (end < start)
+            {
+                (start, end) = (end, start);
+            }
+
+            rows.Add((
+                GetText(record, Definition.LabelField),
+                GetGroup(record),
+                start,
+                end,
+                GetProgressPercent(record)));
+        }
+
+        return rows
+            .OrderBy(entry => entry.Start)
+            .Take(Definition.Limit ?? int.MaxValue)
+            .ToList();
+    }
+
+    private (DateTime Min, DateTime Max) BuildRange()
+    {
+        List<(DateTime start, DateTime end)> ranges = [];
+        foreach (object record in Records)
+        {
+            DateTime start = GetDate(record, Definition.StartDateField);
+            DateTime end = GetDate(record, Definition.EndDateField, start);
+            if (start == default || end == default)
+            {
+                continue;
+            }
+
+            if (end < start)
+            {
+                (start, end) = (end, start);
+            }
+
+            ranges.Add((start, end));
+        }
+
+        if (ranges.Count == 0)
+        {
+            DateTime now = DateTime.UtcNow;
+            return (now, now);
+        }
+
+        return (ranges.Min(item => item.start), ranges.Max(item => item.end));
+    }
+
+    private string GetBarStyle(DateTime start, DateTime end)
+    {
+        (DateTime min, DateTime max) = Range;
+        if (min == max)
+        {
+            return "left: 0; width: 100%; background:#ef6c00; color:white; border-radius:4px; height: 18px;";
+        }
+
+        double totalDays = (max - min).TotalDays;
+        double left = (start - min).TotalDays / totalDays * 100d;
+        double width = Math.Max((end - start).TotalDays, 1d) / totalDays * 100d;
+
+        return $"left:{left:F1}%; width:{width:F1}%; position:absolute; top:2px; bottom:2px; background:#1976d2; border-radius:4px; color:white;";
+    }
+
+    private double GetProgressPercent(object record)
+    {
+        if (Definition.ProgressField is null)
+        {
+            return 1;
+        }
+
+        object? value = PropertyAccessor.GetValue(record, Definition.ProgressField);
+        return value switch
+        {
+            decimal decimalValue => (double)Math.Clamp(decimalValue / 100m, 0m, 1m),
+            double doubleValue => Math.Clamp(doubleValue, 0d, 1d),
+            int intValue => Math.Clamp(intValue, 0, 100) / 100d,
+            _ => 1d
+        };
+    }
+
+    private DateTime GetDate(object record, string field, DateTime defaultDate = default)
+    {
+        return PropertyAccessor.GetValue(record, field) as DateTime? ?? defaultDate;
+    }
+
+    private string GetText(object record, string field)
+    {
+        return PropertyAccessor.GetValue(record, field)?.ToString() ?? string.Empty;
+    }
+
+    private string? GetGroup(object record)
+    {
+        if (string.IsNullOrWhiteSpace(Definition.GroupByField))
+        {
+            return null;
+        }
+
+        return PropertyAccessor.GetValue(record, Definition.GroupByField)?.ToString();
+    }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "saleorder_pivot",
+  "name": "saleorder.pivot",
+  "kind": "Pivot",
+  "model": "SaleOrder",
+  "title": "Pivot: Statut x Origine",
+  "fields": [
+    { "name": "Status", "label": "État", "kind": "Select", "widget": "select", "widgetOptions": ["Draft","Confirmed","Cancelled"] },
+    { "name": "Origin", "label": "Origine", "kind": "Text" },
+    { "name": "Amount", "label": "Montant", "kind": "Currency" }
+  ],
+  "rowField": "Status",
+  "columnField": "Origin",
+  "valueField": "Amount",
+  "aggregation": "Sum",
+  "valuePrecision": 2
+}

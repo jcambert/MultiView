@@ -1,0 +1,171 @@
+@using MudBlazor
+@using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Domain.Model
+@using System.Globalization
+
+<MudPaper Class="p-3">
+    @if (string.IsNullOrWhiteSpace(Definition.Title) == false)
+    {
+        <MudText Typo="Typo.h5" Class="mb-3">@Definition.Title</MudText>
+    }
+
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+        Agrégation par @Definition.Bucket
+    </MudText>
+
+    @if (Buckets.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Elevation="0">
+            Aucune donnée planifiable.
+        </MudAlert>
+    }
+    else
+    {
+        <MudExpansionPanels MultiExpansion="false">
+            @foreach ((DateTime bucketDate, IReadOnlyList<object> bucketRecords) in Buckets)
+            {
+                <MudExpansionPanel Text="@FormatBucketTitle(bucketDate)" Disabled="@(bucketRecords.Count == 0)">
+                    <MudSimpleTable Dense="true">
+                        <thead>
+                            <tr>
+                                <th>Élément</th>
+                                <th>Période</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (object record in bucketRecords.Take(Definition.LimitPerBucket ?? int.MaxValue))
+                        {
+                            <tr>
+                                <td>
+                                    <MudText Typo="Typo.subtitle2">@GetTitle(record)</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@GetSubtitle(record)</MudText>
+                                </td>
+                                <td>
+                                    <MudText Typo="Typo.body2" Color="Color.Primary">@GetValueText(record)</MudText>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </MudSimpleTable>
+                    @if (Definition.LimitPerBucket is not null && bucketRecords.Count > Definition.LimitPerBucket.Value)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
+                            +@(bucketRecords.Count - Definition.LimitPerBucket.Value) éléments cachés
+                        </MudText>
+                    }
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+    }
+</MudPaper>
+
+@code {
+    [Inject]
+    private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
+
+    [Parameter]
+    public CalendarViewDefinition Definition { get; set; } = null!;
+
+    [Parameter]
+    public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
+
+    private IReadOnlyList<(DateTime BucketDate, IReadOnlyList<object> Records)> Buckets => BuildBuckets();
+
+    private IReadOnlyList<(DateTime BucketDate, IReadOnlyList<object> Records)> BuildBuckets()
+    {
+        if (Records.Count == 0)
+        {
+            return [];
+        }
+
+        Dictionary<DateTime, List<object>> byBucket = [];
+        foreach (object record in Records)
+        {
+            DateTime date = GetBucketDate(record);
+            if (date == DateTime.MinValue)
+            {
+                continue;
+            }
+
+            if (!byBucket.TryGetValue(date, out List<object>? bucket))
+            {
+                bucket = [];
+                byBucket[date] = bucket;
+            }
+
+            bucket.Add(record);
+        }
+
+        return [.. byBucket.OrderBy(entry => entry.Key).Select(entry => (entry.Key, (IReadOnlyList<object>)entry.Value))];
+    }
+
+    private DateTime GetBucketDate(object record)
+    {
+        object? start = PropertyAccessor.GetValue(record, Definition.StartDateField);
+        if (start is not DateTime startDate)
+        {
+            return DateTime.MinValue;
+        }
+
+        return Definition.Bucket.ToLowerInvariant() switch
+        {
+            "week" => startDate.Date.AddDays(-(int)startDate.DayOfWeek),
+            "month" => new DateTime(startDate.Year, startDate.Month, 1),
+            "year" => new DateTime(startDate.Year, 1, 1),
+            _ => startDate.Date
+        };
+    }
+
+    private string FormatBucketTitle(DateTime bucketDate)
+    {
+        return Definition.Bucket.ToLowerInvariant() switch
+        {
+            "week" => $"Semaine du {bucketDate:yyyy-MM-dd}",
+            "month" => bucketDate.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("fr-FR")),
+            "year" => bucketDate.ToString("yyyy", CultureInfo.InvariantCulture),
+            _ => bucketDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+        };
+    }
+
+    private string GetTitle(object record)
+    {
+        object? titleValue = PropertyAccessor.GetValue(record, Definition.TitleField ?? string.Empty);
+        return titleValue?.ToString() ?? "Sans titre";
+    }
+
+    private string GetSubtitle(object record)
+    {
+        if (string.IsNullOrWhiteSpace(Definition.SubtitleField))
+        {
+            return string.Empty;
+        }
+
+        object? value = PropertyAccessor.GetValue(record, Definition.SubtitleField);
+        return value?.ToString() ?? string.Empty;
+    }
+
+    private string GetValueText(object record)
+    {
+        object? raw = PropertyAccessor.GetValue(record, Definition.StartDateField);
+        DateTime start = raw as DateTime? ?? default;
+        if (start == default)
+        {
+            return string.Empty;
+        }
+
+        DateTime end = GetEndDate(record);
+        return end == default || end == start
+            ? start.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+            : $"{start:dd/MM/yyyy} → {end:dd/MM/yyyy}";
+    }
+
+    private DateTime GetEndDate(object record)
+    {
+        if (string.IsNullOrWhiteSpace(Definition.EndDateField))
+        {
+            return default;
+        }
+
+        return PropertyAccessor.GetValue(record, Definition.EndDateField) as DateTime? ?? default;
+    }
+}

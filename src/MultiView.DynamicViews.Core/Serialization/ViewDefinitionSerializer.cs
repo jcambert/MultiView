@@ -41,6 +41,10 @@ public sealed class ViewDefinitionSerializer : IViewDefinitionSerializer
             DynamicViewKind.List => JsonSerializer.Deserialize<ListViewDefinition>(json, _options)!,
             DynamicViewKind.Kanban => JsonSerializer.Deserialize<KanbanViewDefinition>(json, _options)!,
             DynamicViewKind.Search => JsonSerializer.Deserialize<SearchViewDefinition>(json, _options)!,
+            DynamicViewKind.Graph => JsonSerializer.Deserialize<GraphViewDefinition>(json, _options)!,
+            DynamicViewKind.Pivot => JsonSerializer.Deserialize<PivotViewDefinition>(json, _options)!,
+            DynamicViewKind.Calendar => JsonSerializer.Deserialize<CalendarViewDefinition>(json, _options)!,
+            DynamicViewKind.Gantt => JsonSerializer.Deserialize<GanttViewDefinition>(json, _options)!,
             _ => throw new NotSupportedException($"Type de vue non supporté: {kind}")
         };
     }

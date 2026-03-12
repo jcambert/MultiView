@@ -1,0 +1,19 @@
+{
+  "id": "saleorder_gantt",
+  "name": "saleorder.gantt",
+  "kind": "Gantt",
+  "model": "SaleOrder",
+  "title": "Tâches (vue Gantt)",
+  "fields": [
+    { "name": "Number", "label": "N°", "kind": "Text" },
+    { "name": "CustomerName", "label": "Client", "kind": "Text" },
+    { "name": "OrderDate", "label": "Date", "kind": "Date" },
+    { "name": "Status", "label": "État", "kind": "Select", "widget": "select", "widgetOptions": ["Draft","Confirmed","Cancelled"] },
+    { "name": "Amount", "label": "Montant", "kind": "Currency" }
+  ],
+  "startDateField": "OrderDate",
+  "endDateField": "OrderDate",
+  "labelField": "Number",
+  "groupByField": "Status",
+  "limit": 20
+}

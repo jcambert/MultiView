@@ -170,6 +170,10 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
             DynamicViewKind.List => MergeList((ListViewDefinition)baseDefinition, (ListViewDefinition)overlay),
             DynamicViewKind.Kanban => MergeKanban((KanbanViewDefinition)baseDefinition, (KanbanViewDefinition)overlay),
             DynamicViewKind.Search => MergeSearch((SearchViewDefinition)baseDefinition, (SearchViewDefinition)overlay),
+            DynamicViewKind.Graph => MergeGraph((GraphViewDefinition)baseDefinition, (GraphViewDefinition)overlay),
+            DynamicViewKind.Pivot => MergePivot((PivotViewDefinition)baseDefinition, (PivotViewDefinition)overlay),
+            DynamicViewKind.Calendar => MergeCalendar((CalendarViewDefinition)baseDefinition, (CalendarViewDefinition)overlay),
+            DynamicViewKind.Gantt => MergeGantt((GanttViewDefinition)baseDefinition, (GanttViewDefinition)overlay),
             _ => throw new NotSupportedException($"Type de vue non supporté: {baseDefinition.Kind}")
         };
     }
@@ -247,6 +251,97 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
             Rules = overlay.Rules ?? baseDefinition.Rules,
             SearchFields = MergeByName(baseDefinition.SearchFields, overlay.SearchFields, field => field),
             DefaultPageSize = overlay.DefaultPageSize ?? baseDefinition.DefaultPageSize
+        };
+    }
+
+    private static GraphViewDefinition MergeGraph(GraphViewDefinition baseDefinition, GraphViewDefinition overlay)
+    {
+        return new GraphViewDefinition
+        {
+            Id = overlay.Id,
+            Model = overlay.Model,
+            Name = overlay.Name,
+            Kind = overlay.Kind,
+            Title = overlay.Title ?? baseDefinition.Title,
+            Extends = overlay.Extends,
+            Composition = MergeComposition(baseDefinition.Composition, overlay.Composition),
+            Fields = MergeByName(baseDefinition.Fields, overlay.Fields, field => field.Name),
+            Actions = MergeByName(baseDefinition.Actions, overlay.Actions, action => action.Name),
+            Rules = overlay.Rules ?? baseDefinition.Rules,
+            CategoryField = string.IsNullOrWhiteSpace(overlay.CategoryField) ? baseDefinition.CategoryField : overlay.CategoryField,
+            ValueField = string.IsNullOrWhiteSpace(overlay.ValueField) ? baseDefinition.ValueField : overlay.ValueField,
+            SeriesField = overlay.SeriesField ?? baseDefinition.SeriesField,
+            Aggregation = overlay.Aggregation ?? baseDefinition.Aggregation,
+            ChartType = overlay.ChartType ?? baseDefinition.ChartType,
+            Limit = overlay.Limit ?? baseDefinition.Limit
+        };
+    }
+
+    private static PivotViewDefinition MergePivot(PivotViewDefinition baseDefinition, PivotViewDefinition overlay)
+    {
+        return new PivotViewDefinition
+        {
+            Id = overlay.Id,
+            Model = overlay.Model,
+            Name = overlay.Name,
+            Kind = overlay.Kind,
+            Title = overlay.Title ?? baseDefinition.Title,
+            Extends = overlay.Extends,
+            Composition = MergeComposition(baseDefinition.Composition, overlay.Composition),
+            Fields = MergeByName(baseDefinition.Fields, overlay.Fields, field => field.Name),
+            Actions = MergeByName(baseDefinition.Actions, overlay.Actions, action => action.Name),
+            Rules = overlay.Rules ?? baseDefinition.Rules,
+            RowField = string.IsNullOrWhiteSpace(overlay.RowField) ? baseDefinition.RowField : overlay.RowField,
+            ColumnField = string.IsNullOrWhiteSpace(overlay.ColumnField) ? baseDefinition.ColumnField : overlay.ColumnField,
+            ValueField = string.IsNullOrWhiteSpace(overlay.ValueField) ? baseDefinition.ValueField : overlay.ValueField,
+            Aggregation = overlay.Aggregation ?? baseDefinition.Aggregation,
+            ValuePrecision = overlay.ValuePrecision ?? baseDefinition.ValuePrecision
+        };
+    }
+
+    private static CalendarViewDefinition MergeCalendar(CalendarViewDefinition baseDefinition, CalendarViewDefinition overlay)
+    {
+        return new CalendarViewDefinition
+        {
+            Id = overlay.Id,
+            Model = overlay.Model,
+            Name = overlay.Name,
+            Kind = overlay.Kind,
+            Title = overlay.Title ?? baseDefinition.Title,
+            Extends = overlay.Extends,
+            Composition = MergeComposition(baseDefinition.Composition, overlay.Composition),
+            Fields = MergeByName(baseDefinition.Fields, overlay.Fields, field => field.Name),
+            Actions = MergeByName(baseDefinition.Actions, overlay.Actions, action => action.Name),
+            Rules = overlay.Rules ?? baseDefinition.Rules,
+            StartDateField = string.IsNullOrWhiteSpace(overlay.StartDateField) ? baseDefinition.StartDateField : overlay.StartDateField,
+            EndDateField = overlay.EndDateField ?? baseDefinition.EndDateField,
+            TitleField = overlay.TitleField ?? baseDefinition.TitleField,
+            SubtitleField = overlay.SubtitleField ?? baseDefinition.SubtitleField,
+            Bucket = overlay.Bucket ?? baseDefinition.Bucket,
+            LimitPerBucket = overlay.LimitPerBucket ?? baseDefinition.LimitPerBucket
+        };
+    }
+
+    private static GanttViewDefinition MergeGantt(GanttViewDefinition baseDefinition, GanttViewDefinition overlay)
+    {
+        return new GanttViewDefinition
+        {
+            Id = overlay.Id,
+            Model = overlay.Model,
+            Name = overlay.Name,
+            Kind = overlay.Kind,
+            Title = overlay.Title ?? baseDefinition.Title,
+            Extends = overlay.Extends,
+            Composition = MergeComposition(baseDefinition.Composition, overlay.Composition),
+            Fields = MergeByName(baseDefinition.Fields, overlay.Fields, field => field.Name),
+            Actions = MergeByName(baseDefinition.Actions, overlay.Actions, action => action.Name),
+            Rules = overlay.Rules ?? baseDefinition.Rules,
+            StartDateField = string.IsNullOrWhiteSpace(overlay.StartDateField) ? baseDefinition.StartDateField : overlay.StartDateField,
+            EndDateField = string.IsNullOrWhiteSpace(overlay.EndDateField) ? baseDefinition.EndDateField : overlay.EndDateField,
+            LabelField = string.IsNullOrWhiteSpace(overlay.LabelField) ? baseDefinition.LabelField : overlay.LabelField,
+            GroupByField = overlay.GroupByField ?? baseDefinition.GroupByField,
+            ProgressField = overlay.ProgressField ?? baseDefinition.ProgressField,
+            Limit = overlay.Limit ?? baseDefinition.Limit
         };
     }
 
@@ -375,6 +470,125 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
                 Rules = searchDefinition.Rules,
                 SearchFields = searchDefinition.SearchFields,
                 DefaultPageSize = searchDefinition.DefaultPageSize
+            };
+        }
+
+        if (definition is GraphViewDefinition graphDefinition)
+        {
+            return new GraphViewDefinition
+            {
+                Id = graphDefinition.Id,
+                Model = graphDefinition.Model,
+                Name = graphDefinition.Name,
+                Kind = graphDefinition.Kind,
+                Title = graphDefinition.Title,
+                Extends = graphDefinition.Extends,
+                Composition = new ViewCompositionDefinition
+                {
+                    Includes = [],
+                    RemoveFields = composition.RemoveFields,
+                    RemoveSections = composition.RemoveSections,
+                    RemoveColumns = composition.RemoveColumns,
+                    RemoveActions = composition.RemoveActions
+                },
+                Fields = fields,
+                Actions = actions,
+                Rules = graphDefinition.Rules,
+                CategoryField = graphDefinition.CategoryField,
+                ValueField = graphDefinition.ValueField,
+                SeriesField = graphDefinition.SeriesField,
+                Aggregation = graphDefinition.Aggregation,
+                ChartType = graphDefinition.ChartType,
+                Limit = graphDefinition.Limit
+            };
+        }
+
+        if (definition is PivotViewDefinition pivotDefinition)
+        {
+            return new PivotViewDefinition
+            {
+                Id = pivotDefinition.Id,
+                Model = pivotDefinition.Model,
+                Name = pivotDefinition.Name,
+                Kind = pivotDefinition.Kind,
+                Title = pivotDefinition.Title,
+                Extends = pivotDefinition.Extends,
+                Composition = new ViewCompositionDefinition
+                {
+                    Includes = [],
+                    RemoveFields = composition.RemoveFields,
+                    RemoveSections = composition.RemoveSections,
+                    RemoveColumns = composition.RemoveColumns,
+                    RemoveActions = composition.RemoveActions
+                },
+                Fields = fields,
+                Actions = actions,
+                Rules = pivotDefinition.Rules,
+                RowField = pivotDefinition.RowField,
+                ColumnField = pivotDefinition.ColumnField,
+                ValueField = pivotDefinition.ValueField,
+                Aggregation = pivotDefinition.Aggregation,
+                ValuePrecision = pivotDefinition.ValuePrecision
+            };
+        }
+
+        if (definition is CalendarViewDefinition calendarDefinition)
+        {
+            return new CalendarViewDefinition
+            {
+                Id = calendarDefinition.Id,
+                Model = calendarDefinition.Model,
+                Name = calendarDefinition.Name,
+                Kind = calendarDefinition.Kind,
+                Title = calendarDefinition.Title,
+                Extends = calendarDefinition.Extends,
+                Composition = new ViewCompositionDefinition
+                {
+                    Includes = [],
+                    RemoveFields = composition.RemoveFields,
+                    RemoveSections = composition.RemoveSections,
+                    RemoveColumns = composition.RemoveColumns,
+                    RemoveActions = composition.RemoveActions
+                },
+                Fields = fields,
+                Actions = actions,
+                Rules = calendarDefinition.Rules,
+                StartDateField = calendarDefinition.StartDateField,
+                EndDateField = calendarDefinition.EndDateField,
+                TitleField = calendarDefinition.TitleField,
+                SubtitleField = calendarDefinition.SubtitleField,
+                Bucket = calendarDefinition.Bucket,
+                LimitPerBucket = calendarDefinition.LimitPerBucket
+            };
+        }
+
+        if (definition is GanttViewDefinition ganttDefinition)
+        {
+            return new GanttViewDefinition
+            {
+                Id = ganttDefinition.Id,
+                Model = ganttDefinition.Model,
+                Name = ganttDefinition.Name,
+                Kind = ganttDefinition.Kind,
+                Title = ganttDefinition.Title,
+                Extends = ganttDefinition.Extends,
+                Composition = new ViewCompositionDefinition
+                {
+                    Includes = [],
+                    RemoveFields = composition.RemoveFields,
+                    RemoveSections = composition.RemoveSections,
+                    RemoveColumns = composition.RemoveColumns,
+                    RemoveActions = composition.RemoveActions
+                },
+                Fields = fields,
+                Actions = actions,
+                Rules = ganttDefinition.Rules,
+                StartDateField = ganttDefinition.StartDateField,
+                EndDateField = ganttDefinition.EndDateField,
+                LabelField = ganttDefinition.LabelField,
+                GroupByField = ganttDefinition.GroupByField,
+                ProgressField = ganttDefinition.ProgressField,
+                Limit = ganttDefinition.Limit
             };
         }
 
@@ -509,6 +723,81 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
                 Rules = definition.Rules,
                 SearchFields = ((SearchViewDefinition)definition).SearchFields,
                 DefaultPageSize = ((SearchViewDefinition)definition).DefaultPageSize
+            },
+            DynamicViewKind.Graph => new GraphViewDefinition
+            {
+                Id = viewId,
+                Model = definition.Model,
+                Name = definition.Name,
+                Kind = definition.Kind,
+                Title = definition.Title,
+                Extends = definition.Extends,
+                Composition = definition.Composition,
+                Fields = definition.Fields,
+                Actions = definition.Actions,
+                Rules = definition.Rules,
+                CategoryField = ((GraphViewDefinition)definition).CategoryField,
+                ValueField = ((GraphViewDefinition)definition).ValueField,
+                SeriesField = ((GraphViewDefinition)definition).SeriesField,
+                Aggregation = ((GraphViewDefinition)definition).Aggregation,
+                ChartType = ((GraphViewDefinition)definition).ChartType,
+                Limit = ((GraphViewDefinition)definition).Limit
+            },
+            DynamicViewKind.Pivot => new PivotViewDefinition
+            {
+                Id = viewId,
+                Model = definition.Model,
+                Name = definition.Name,
+                Kind = definition.Kind,
+                Title = definition.Title,
+                Extends = definition.Extends,
+                Composition = definition.Composition,
+                Fields = definition.Fields,
+                Actions = definition.Actions,
+                Rules = definition.Rules,
+                RowField = ((PivotViewDefinition)definition).RowField,
+                ColumnField = ((PivotViewDefinition)definition).ColumnField,
+                ValueField = ((PivotViewDefinition)definition).ValueField,
+                Aggregation = ((PivotViewDefinition)definition).Aggregation,
+                ValuePrecision = ((PivotViewDefinition)definition).ValuePrecision
+            },
+            DynamicViewKind.Calendar => new CalendarViewDefinition
+            {
+                Id = viewId,
+                Model = definition.Model,
+                Name = definition.Name,
+                Kind = definition.Kind,
+                Title = definition.Title,
+                Extends = definition.Extends,
+                Composition = definition.Composition,
+                Fields = definition.Fields,
+                Actions = definition.Actions,
+                Rules = definition.Rules,
+                StartDateField = ((CalendarViewDefinition)definition).StartDateField,
+                EndDateField = ((CalendarViewDefinition)definition).EndDateField,
+                TitleField = ((CalendarViewDefinition)definition).TitleField,
+                SubtitleField = ((CalendarViewDefinition)definition).SubtitleField,
+                Bucket = ((CalendarViewDefinition)definition).Bucket,
+                LimitPerBucket = ((CalendarViewDefinition)definition).LimitPerBucket
+            },
+            DynamicViewKind.Gantt => new GanttViewDefinition
+            {
+                Id = viewId,
+                Model = definition.Model,
+                Name = definition.Name,
+                Kind = definition.Kind,
+                Title = definition.Title,
+                Extends = definition.Extends,
+                Composition = definition.Composition,
+                Fields = definition.Fields,
+                Actions = definition.Actions,
+                Rules = definition.Rules,
+                StartDateField = ((GanttViewDefinition)definition).StartDateField,
+                EndDateField = ((GanttViewDefinition)definition).EndDateField,
+                LabelField = ((GanttViewDefinition)definition).LabelField,
+                GroupByField = ((GanttViewDefinition)definition).GroupByField,
+                ProgressField = ((GanttViewDefinition)definition).ProgressField,
+                Limit = ((GanttViewDefinition)definition).Limit
             },
             _ => throw new NotSupportedException($"Type de vue non supporté: {definition.Kind}")
         };

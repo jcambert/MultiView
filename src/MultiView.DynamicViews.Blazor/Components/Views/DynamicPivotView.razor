@@ -1,0 +1,123 @@
+@using MudBlazor
+@using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Domain.Model
+@using System.Globalization
+
+<MudPaper Class="p-3">
+    @if (string.IsNullOrWhiteSpace(Definition.Title) == false)
+    {
+        <MudText Typo="Typo.h5" Class="mb-3">@Definition.Title</MudText>
+    }
+
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+        @Definition.RowField / @Definition.ColumnField · @Definition.Aggregation
+    </MudText>
+
+    @if (Rows.Count == 0 || Columns.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Elevation="0">
+            Aucun axe de pivot disponible.
+        </MudAlert>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true">
+            <thead>
+                <tr>
+                    <th>@Definition.RowField</th>
+                    @foreach (string column in Columns)
+                    {
+                        <th>@column</th>
+                    }
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (string row in Rows)
+                {
+                    <tr>
+                        <td>@row</td>
+                        @foreach (string column in Columns)
+                        {
+                            <td>@GetDisplayValue(row, column)</td>
+                        }
+                        <td>@FormatTotal(GetRowTotal(row))</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</MudPaper>
+
+@code {
+    [Inject]
+    private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
+
+    [Parameter]
+    public PivotViewDefinition Definition { get; set; } = null!;
+
+    [Parameter]
+    public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
+
+    private IReadOnlyList<string> Columns =>
+        [.. Matrix.Keys.Select(x => x.Item2)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)];
+
+    private IReadOnlyList<string> Rows =>
+        [.. Matrix.Keys.Select(x => x.Item1).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(value => value, StringComparer.OrdinalIgnoreCase)];
+
+    private IReadOnlyDictionary<(string row, string column), decimal> Matrix => BuildMatrix();
+
+    private Dictionary<(string row, string column), decimal> BuildMatrix()
+    {
+        var matrix = new Dictionary<(string row, string column), decimal>();
+
+        foreach (object record in Records)
+        {
+            string row = ConvertToString(PropertyAccessor.GetValue(record, Definition.RowField)) ?? "Non défini";
+            string column = ConvertToString(PropertyAccessor.GetValue(record, Definition.ColumnField)) ?? "Non défini";
+            decimal value = GetNumericValue(record, Definition.ValueField);
+
+            var key = (row, column);
+            matrix[key] = matrix.GetValueOrDefault(key) + value;
+        }
+
+        return matrix;
+    }
+
+    private string GetDisplayValue(string row, string column)
+    {
+        decimal value = Matrix.TryGetValue((row, column), out decimal cellValue) ? cellValue : 0m;
+        return FormatValue(value);
+    }
+
+    private decimal GetRowTotal(string row)
+    {
+        return Matrix.Where(entry => string.Equals(entry.Key.row, row, StringComparison.OrdinalIgnoreCase))
+            .Sum(entry => entry.Value);
+    }
+
+    private string FormatValue(decimal value) => value.ToString($"N{Definition.ValuePrecision ?? 2}", CultureInfo.InvariantCulture);
+
+    private string FormatTotal(decimal value) => value.ToString($"N{Definition.ValuePrecision ?? 2}", CultureInfo.InvariantCulture);
+
+    private decimal GetNumericValue(object record, string field)
+    {
+        object? value = PropertyAccessor.GetValue(record, field);
+        return value switch
+        {
+            decimal decimalValue => decimalValue,
+            double doubleValue => (decimal)doubleValue,
+            float floatValue => (decimal)floatValue,
+            int intValue => intValue,
+            long longValue => longValue,
+            _ => 0m
+        };
+    }
+
+    private static string? ConvertToString(object? value)
+    {
+        return value?.ToString();
+    }
+}

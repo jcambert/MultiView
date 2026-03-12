@@ -1,0 +1,141 @@
+@using MudBlazor
+@using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Domain.Model
+@using System.Globalization
+
+<MudPaper Class="p-3">
+    @if (string.IsNullOrWhiteSpace(Definition.Title) == false)
+    {
+        <MudText Typo="Typo.h5" Class="mb-2">@Definition.Title</MudText>
+    }
+
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+        @Definition.ChartType · @Definition.Aggregation
+        @if (Definition.Limit.HasValue)
+        {
+            <span> · Limite: @Definition.Limit</span>
+        }
+    </MudText>
+
+    @if (Buckets.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Elevation="0">
+            Aucun résultat exploitable pour la vue Graph.
+        </MudAlert>
+    }
+    else
+    {
+        <MudStack Spacing="2">
+            @foreach (KeyValuePair<string, IReadOnlyList<GraphSeriesPoint>> entry in Buckets)
+            {
+                <MudPaper Class="pa-3" Outlined="true">
+                    <MudText Typo="Typo.h6" Class="mb-2">@entry.Key</MudText>
+                    @foreach (GraphSeriesPoint point in entry.Value)
+                    {
+                        <div class="mb-3">
+                            <div class="d-flex justify-space-between">
+                                <MudText Typo="Typo.body2">@point.Label</MudText>
+                                <MudText Typo="Typo.body2">@point.Total.ToString("N2", CultureInfo.InvariantCulture)</MudText>
+                            </div>
+                            <MudProgressLinear
+                                Value="@GetPercent(point.Total)"
+                                Color="Color.Primary"
+                                Class="mt-1" />
+                        </div>
+                    }
+                </MudPaper>
+            }
+        </MudStack>
+    }
+</MudPaper>
+
+@code {
+    [Inject]
+    private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
+
+    [Parameter]
+    public GraphViewDefinition Definition { get; set; } = null!;
+
+    [Parameter]
+    public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
+
+    private IDictionary<string, IReadOnlyList<GraphSeriesPoint>> Buckets => BuildBuckets();
+
+    private sealed record GraphSeriesPoint(string Label, decimal Total);
+
+    private IDictionary<string, IReadOnlyList<GraphSeriesPoint>> BuildBuckets()
+    {
+        Dictionary<string, Dictionary<string, decimal>> grouped = [];
+
+        foreach (object record in Records)
+        {
+            string category = GetCategory(record);
+            string series = GetSeries(record);
+
+            if (!grouped.TryGetValue(category, out Dictionary<string, decimal>? seriesBySeries))
+            {
+                seriesBySeries = [];
+                grouped[category] = seriesBySeries;
+            }
+
+            seriesBySeries[series] = seriesBySeries.GetValueOrDefault(series) + GetNumericValue(record, Definition.ValueField);
+        }
+
+        var buckets = grouped
+            .OrderByDescending(group => group.Value.Sum(item => item.Value))
+            .Take(Definition.Limit ?? int.MaxValue)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<GraphSeriesPoint>)group.Value
+                    .OrderBy(item => item.Key)
+                    .Select(item => new GraphSeriesPoint(item.Key, item.Value))
+                    .ToList());
+
+        return buckets;
+    }
+
+    private string GetCategory(object record)
+    {
+        return ConvertToString(PropertyAccessor.GetValue(record, Definition.CategoryField)) ?? "Non défini";
+    }
+
+    private string GetSeries(object record)
+    {
+        if (string.IsNullOrWhiteSpace(Definition.SeriesField))
+        {
+            return Definition.ChartType;
+        }
+
+        return ConvertToString(PropertyAccessor.GetValue(record, Definition.SeriesField)) ?? Definition.ChartType;
+    }
+
+    private decimal GetNumericValue(object record, string field)
+    {
+        object? value = PropertyAccessor.GetValue(record, field);
+        return value switch
+        {
+            decimal decimalValue => decimalValue,
+            double doubleValue => (decimal)doubleValue,
+            float floatValue => (decimal)floatValue,
+            int intValue => intValue,
+            long longValue => longValue,
+            _ => 0m
+        };
+    }
+
+    private string ConvertToString(object? value)
+    {
+        return value?.ToString() ?? string.Empty;
+    }
+
+    private double GetPercent(decimal value)
+    {
+        decimal max = Buckets.Values.SelectMany(points => points).Sum(point => point.Total);
+        if (max <= 0m)
+        {
+            return 0;
+        }
+
+        return (double)Math.Clamp((value / max) * 100m, 0m, 100m);
+    }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "saleorder_calendar",
+  "name": "saleorder.calendar",
+  "kind": "Calendar",
+  "model": "SaleOrder",
+  "title": "Calendrier des commandes",
+  "fields": [
+    { "name": "Number", "label": "N°", "kind": "Text" },
+    { "name": "CustomerName", "label": "Client", "kind": "Text" },
+    { "name": "OrderDate", "label": "Date de commande", "kind": "Date" },
+    { "name": "Amount", "label": "Montant", "kind": "Currency" },
+    { "name": "Status", "label": "État", "kind": "Select", "widget": "select", "widgetOptions": ["Draft","Confirmed","Cancelled"] }
+  ],
+  "startDateField": "OrderDate",
+  "endDateField": "OrderDate",
+  "titleField": "Number",
+  "subtitleField": "CustomerName",
+  "bucket": "day",
+  "limitPerBucket": 10
+}

@@ -1,0 +1,110 @@
+@using MudBlazor
+@using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Domain.Model
+@using System.Globalization
+
+<MudPaper Class="p-3">
+    @if (string.IsNullOrWhiteSpace(Definition.Title) == false)
+    {
+        <MudText Typo="Typo.h5" Class="mb-3">@Definition.Title</MudText>
+    }
+
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+        Saisissez un terme pour filtrer les résultats.
+    </MudText>
+
+    <MudTextField
+        T="string"
+        @bind-Value="SearchText"
+        Label="Recherche"
+        Placeholder="Rechercher..."
+        Variant="Variant.Outlined"
+        Margin="Margin.Dense"
+        FullWidth="true"
+        Clearable="true"
+        Class="mb-3" />
+
+    @if (FilteredRecords.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Elevation="0">
+            Aucun résultat pour <strong>@SearchText</strong>.
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable T="object" Items="FilteredRecords" Dense="true" Hover="true" Elevation="0">
+            <HeaderContent>
+                @foreach (string column in Columns)
+                {
+                    <MudTh>@GetColumnTitle(column)</MudTh>
+                }
+            </HeaderContent>
+            <RowTemplate Context="record">
+                @foreach (string column in Columns)
+                {
+                    <MudTd DataLabel="@(GetColumnTitle(column))">
+                        @FormatValue(record, column)
+                    </MudTd>
+                }
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    [Inject]
+    private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
+
+    [Parameter]
+    public SearchViewDefinition Definition { get; set; } = null!;
+
+    [Parameter]
+    public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
+
+    private string SearchText { get; set; } = string.Empty;
+
+    private IReadOnlyList<string> Columns => Definition.SearchFields.Count > 0
+        ? Definition.SearchFields
+        : Definition.Fields.Select(viewField => viewField.Name).ToList();
+
+    private IReadOnlyList<object> FilteredRecords => string.IsNullOrWhiteSpace(SearchText)
+        ? Records
+        : [.. Records.Where(MatchesSearch)];
+
+    private bool MatchesSearch(object record)
+    {
+        string query = SearchText.Trim();
+        if (query.Length == 0)
+        {
+            return true;
+        }
+
+        return Columns
+            .Select(column => FormatValue(record, column))
+            .Any(value => value.Contains(query, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string FormatValue(object record, string field)
+    {
+        if (record is null || string.IsNullOrWhiteSpace(field))
+        {
+            return string.Empty;
+        }
+
+        object? value = PropertyAccessor.GetValue(record, field);
+        return value switch
+        {
+            null => string.Empty,
+            DateTime dateTime => dateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            decimal amount => amount.ToString("N2", CultureInfo.InvariantCulture),
+            double amount => amount.ToString("N2", CultureInfo.InvariantCulture),
+            float amount => amount.ToString("N2", CultureInfo.InvariantCulture),
+            _ => value.ToString() ?? string.Empty
+        };
+    }
+
+    private static string GetColumnTitle(string field)
+    {
+        return field;
+    }
+}

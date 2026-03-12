@@ -18,6 +18,21 @@ else
         case DynamicViewKind.Kanban:
             <DynamicKanbanView Definition="(KanbanViewDefinition)Definition" Records="RecordsContext" />
             break;
+        case DynamicViewKind.Search:
+            <DynamicSearchView Definition="(SearchViewDefinition)Definition" Records="RecordsContext" />
+            break;
+        case DynamicViewKind.Graph:
+            <DynamicGraphView Definition="(GraphViewDefinition)Definition" Records="RecordsContext" />
+            break;
+        case DynamicViewKind.Pivot:
+            <DynamicPivotView Definition="(PivotViewDefinition)Definition" Records="RecordsContext" />
+            break;
+        case DynamicViewKind.Calendar:
+            <DynamicCalendarView Definition="(CalendarViewDefinition)Definition" Records="RecordsContext" />
+            break;
+        case DynamicViewKind.Gantt:
+            <DynamicGanttView Definition="(GanttViewDefinition)Definition" Records="RecordsContext" />
+            break;
         default:
             <MudText Typo="Typo.body1" Color="Color.Warning">Le type de vue @Definition.Kind n\'est pas encore supporté.</MudText>
             break;
