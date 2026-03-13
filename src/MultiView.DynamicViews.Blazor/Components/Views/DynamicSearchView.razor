@@ -17,7 +17,8 @@
 
     <MudTextField
         T="string"
-        @bind-Value="SearchText"
+        Value="SearchText"
+        ValueChanged="OnSearchTextChanged"
         Label="Recherche"
         Placeholder="Rechercher..."
         Variant="Variant.Outlined"
@@ -42,7 +43,30 @@
         }
     </MudGrid>
 
-    @if (FilteredRecords.Count == 0)
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-3" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.caption">@GetSummary()</MudText>
+
+        @if (EnablePaging)
+        {
+            <MudSelect T="int" Label="Éléments / page" Value="_pageSize" ValueChanged="OnPageSizeChanged">
+                @foreach (int size in _availablePageSizes)
+                {
+                    <MudSelectItem Value="@size">@size</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudSpacer />
+            <MudText Typo="Typo.caption">Page @(_currentPageIndex + 1) / @TotalPages</MudText>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="PreviousPage" Disabled="@(!CanGoPrevious)">
+                Précédent
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Size="Size.Small" OnClick="NextPage" Disabled="@(!CanGoNext)">
+                Suivant
+            </MudButton>
+        }
+    </MudStack>
+
+    @if (VisibleRecords.Count == 0)
     {
         <MudAlert Severity="Severity.Info" Elevation="0">
             Aucun résultat.
@@ -50,11 +74,19 @@
     }
     else
     {
-        <MudTable T="object" Items="FilteredRecords" Dense="true" Hover="true" Elevation="0">
+        <MudTable T="object" Items="VisibleRecords" Dense="true" Hover="true" Elevation="0">
             <HeaderContent>
                 @foreach (string column in Columns)
                 {
-                    <MudTh>@GetColumnTitle(column)</MudTh>
+                    <MudTh @onclick="() => ToggleSort(column)" Style="cursor: pointer;">
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                            <span>@GetColumnTitle(column)</span>
+                            @if (_sortField is not null && string.Equals(_sortField, column, StringComparison.OrdinalIgnoreCase))
+                            {
+                                <MudText Typo="Typo.caption">@(_sortAscending ? "▲" : "▼")</MudText>
+                            }
+                        </MudStack>
+                    </MudTh>
                 }
             </HeaderContent>
             <RowTemplate Context="record">
@@ -82,6 +114,37 @@
     private readonly Dictionary<string, object?> _filters = new(StringComparer.OrdinalIgnoreCase);
     private string SearchText { get; set; } = string.Empty;
     private object _filterRecord => _filters;
+    private readonly int[] _availablePageSizes = [5, 10, 20, 50, 100];
+    private bool EnablePaging => Definition.EnablePaging;
+    private string? _sortField;
+    private bool _sortAscending = true;
+    private int _currentPageIndex;
+    private int _pageSize = 10;
+
+    private IReadOnlyList<object> SortedRecords =>
+        string.IsNullOrWhiteSpace(_sortField)
+            ? FilteredRecords
+            : [.. FilteredRecords.OrderBy(record => record, new SearchFieldComparer(record => PropertyAccessor.GetValue(record, _sortField), _sortAscending))];
+
+    private IReadOnlyList<object> VisibleRecords
+    {
+        get
+        {
+            if (!EnablePaging)
+            {
+                return SortedRecords;
+            }
+
+            EnsurePagingBounds();
+            int skip = _currentPageIndex * _pageSize;
+            return [.. SortedRecords.Skip(skip).Take(_pageSize)];
+        }
+    }
+
+    private int TotalRecords => SortedRecords.Count;
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalRecords / (double)_pageSize));
+    private bool CanGoPrevious => _currentPageIndex > 0;
+    private bool CanGoNext => _currentPageIndex + 1 < TotalPages;
 
     private IReadOnlyList<ViewFieldDefinition> SearchFields =>
         Definition.SearchFields.Count > 0
@@ -124,6 +187,8 @@
     protected override void OnParametersSet()
     {
         EnsureFilterKeys();
+        EnsureInitialSorting();
+        SyncPagingState();
     }
 
     private bool MatchesSearch(object record)
@@ -318,6 +383,180 @@
 
     private void OnFilterValueChanged(object? _)
     {
+        _currentPageIndex = 0;
         StateHasChanged();
+    }
+
+    private void OnSearchTextChanged(string value)
+    {
+        SearchText = value;
+        _currentPageIndex = 0;
+    }
+
+    private void ToggleSort(string field)
+    {
+        if (_sortField is not null && string.Equals(_sortField, field, StringComparison.OrdinalIgnoreCase))
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortField = field;
+            _sortAscending = true;
+        }
+
+        _currentPageIndex = 0;
+    }
+
+    private void PreviousPage()
+    {
+        if (CanGoPrevious)
+        {
+            _currentPageIndex--;
+        }
+    }
+
+    private void NextPage()
+    {
+        if (CanGoNext)
+        {
+            _currentPageIndex++;
+        }
+    }
+
+    private void OnPageSizeChanged(int newPageSize)
+    {
+        int safePageSize = newPageSize <= 0 ? 10 : newPageSize;
+        if (_pageSize != safePageSize)
+        {
+            _pageSize = safePageSize;
+            _currentPageIndex = 0;
+        }
+    }
+
+    private string GetSummary()
+    {
+        return EnablePaging
+            ? $"{TotalRecords} résultat(s) - page {_currentPageIndex + 1}/{TotalPages}"
+            : $"{TotalRecords} résultat(s)";
+    }
+
+    private void EnsureInitialSorting()
+    {
+        _sortField ??= Columns.FirstOrDefault();
+        if (_sortField is not null && !Columns.Any(column => string.Equals(column, _sortField, StringComparison.OrdinalIgnoreCase)))
+        {
+            _sortField = Columns.FirstOrDefault();
+        }
+
+        if (_sortField is null)
+        {
+            _sortAscending = true;
+        }
+    }
+
+    private void SyncPagingState()
+    {
+        _pageSize = Definition.DefaultPageSize ?? _pageSize;
+        if (_pageSize <= 0)
+        {
+            _pageSize = 10;
+        }
+
+        EnsurePagingBounds();
+    }
+
+    private void EnsurePagingBounds()
+    {
+        if (_pageSize <= 0)
+        {
+            _pageSize = 10;
+        }
+
+        if (_currentPageIndex >= TotalPages)
+        {
+            _currentPageIndex = Math.Max(0, TotalPages - 1);
+        }
+
+        if (_currentPageIndex < 0)
+        {
+            _currentPageIndex = 0;
+        }
+    }
+
+    private sealed class SearchFieldComparer(
+        Func<object, object?> selector,
+        bool ascending) : IComparer<object>
+    {
+        public int Compare(object? x, object? y)
+        {
+            int comparison = CompareValues(selector(x!), selector(y!));
+            return ascending ? comparison : -comparison;
+        }
+
+        private static int CompareValues(object? left, object? right)
+        {
+            if (left is null && right is null)
+            {
+                return 0;
+            }
+
+            if (left is null)
+            {
+                return -1;
+            }
+
+            if (right is null)
+            {
+                return 1;
+            }
+
+            if (left is bool leftBoolean && right is bool rightBoolean)
+            {
+                return leftBoolean.CompareTo(rightBoolean);
+            }
+
+            if (TryGetDecimal(left, out decimal leftDecimal) && TryGetDecimal(right, out decimal rightDecimal))
+            {
+                return leftDecimal.CompareTo(rightDecimal);
+            }
+
+            if (left is DateTime leftDate && right is DateTime rightDate)
+            {
+                return leftDate.CompareTo(rightDate);
+            }
+
+            return string.Compare(
+                left.ToString(),
+                right.ToString(),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryGetDecimal(object value, out decimal result)
+        {
+            switch (value)
+            {
+                case decimal decimalValue:
+                    result = decimalValue;
+                    return true;
+                case double doubleValue:
+                    result = (decimal)doubleValue;
+                    return true;
+                case float floatValue:
+                    result = (decimal)floatValue;
+                    return true;
+                case int intValue:
+                    result = intValue;
+                    return true;
+                case long longValue:
+                    result = longValue;
+                    return true;
+                case string text when decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out result):
+                    return true;
+                default:
+                    result = 0m;
+                    return false;
+            }
+        }
     }
 }

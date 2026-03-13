@@ -4,6 +4,7 @@
   "kind": "Search",
   "model": "SaleOrder",
   "title": "Recherche commandes",
+  "enablePaging": true,
   "fields": [
     { "name": "Number", "label": "N°", "kind": "Text" },
     { "name": "CustomerName", "label": "Client", "kind": "Text" },

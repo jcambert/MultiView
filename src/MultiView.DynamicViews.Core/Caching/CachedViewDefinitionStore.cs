@@ -212,7 +212,8 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
             Actions = MergeByName(baseDefinition.Actions, overlay.Actions, action => action.Name),
             Rules = overlay.Rules ?? baseDefinition.Rules,
             EnableSearch = overlay.EnableSearch,
-            EnablePaging = overlay.EnablePaging
+            EnablePaging = overlay.EnablePaging,
+            DefaultPageSize = overlay.DefaultPageSize ?? baseDefinition.DefaultPageSize
         };
     }
 
@@ -250,6 +251,7 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
             Actions = MergeByName(baseDefinition.Actions, overlay.Actions, action => action.Name),
             Rules = overlay.Rules ?? baseDefinition.Rules,
             SearchFields = MergeByName(baseDefinition.SearchFields, overlay.SearchFields, field => field),
+            EnablePaging = overlay.EnablePaging,
             DefaultPageSize = overlay.DefaultPageSize ?? baseDefinition.DefaultPageSize
         };
     }
@@ -389,7 +391,8 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
                     column => column.Field,
                     composition.RemoveColumns),
                 EnableSearch = listDefinition.EnableSearch,
-                EnablePaging = listDefinition.EnablePaging
+                EnablePaging = listDefinition.EnablePaging,
+                DefaultPageSize = listDefinition.DefaultPageSize
             };
         }
 
@@ -469,6 +472,7 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
                 Actions = actions,
                 Rules = searchDefinition.Rules,
                 SearchFields = searchDefinition.SearchFields,
+                EnablePaging = searchDefinition.EnablePaging,
                 DefaultPageSize = searchDefinition.DefaultPageSize
             };
         }
@@ -692,7 +696,8 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
                 Rules = definition.Rules,
                 Columns = ((ListViewDefinition)definition).Columns,
                 EnableSearch = ((ListViewDefinition)definition).EnableSearch,
-                EnablePaging = ((ListViewDefinition)definition).EnablePaging
+                EnablePaging = ((ListViewDefinition)definition).EnablePaging,
+                DefaultPageSize = ((ListViewDefinition)definition).DefaultPageSize
             },
             DynamicViewKind.Kanban => new KanbanViewDefinition
             {
@@ -722,6 +727,7 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
                 Actions = definition.Actions,
                 Rules = definition.Rules,
                 SearchFields = ((SearchViewDefinition)definition).SearchFields,
+                EnablePaging = ((SearchViewDefinition)definition).EnablePaging,
                 DefaultPageSize = ((SearchViewDefinition)definition).DefaultPageSize
             },
             DynamicViewKind.Graph => new GraphViewDefinition

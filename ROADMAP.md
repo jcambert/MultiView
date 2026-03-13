@@ -27,9 +27,9 @@ Objectif : garder une source unique de vérité sur les fonctionnalités livrée
 | Done | US-CONF-02 | UX | Layout MudBlazor stable (dropdown/menus) | P0 | Documentation + providers racine (`MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider`, `MudSnackbarProvider`). |
 | In Progress | US-DS-05 | Core des définitions | Versioning des définitions | P1 | Stocker la version d’une définition et gérer la compatibilité évolutive. |
 | In Progress | US-DS-06 | Core des définitions | Validation JSON Schema | P1 | Valider format, types, dépendances et champs inconnus à l’import. |
-| Planned | US-UI-04 | List View | Paging côté client + sélection d’affichage | P1 | `enablePaging` doit piloter la vue avec taille de page configurable. |
-| Planned | US-UI-05 | List View | Recherche globale + tri multi-colonnes | P1 | Implémenter tri, filtre textuel global et mémorisation. |
-| Planned | US-UI-06 | Search View | Pagination + tri dans Search | P1 | Exploiter `defaultPageSize`, ajouter tri et navigation par pages. |
+| Done | US-UI-04 | List View | Pagination côté client + sélection d’affichage | P1 | `enablePaging` pilote la pagination avec taille de page configurable. |
+| Done | US-UI-05 | List View | Recherche globale + tri multi-colonnes | P1 | Tri multi-colonnes côté client implémenté avec pagination associée. |
+| Done | US-UI-06 | Search View | Pagination + tri dans Search | P1 | Tri + pagination côté client dans Search avec `defaultPageSize` et reset d’état. |
 | Planned | US-UI-07 | Kanban View | Colonnes dynamiques sur règles | P2 | Colonnes/affichage de carte pilotés par la définition et règles d’affichage. |
 | Planned | US-UI-08 | Graph View | Vue analytique réelle | P2 | Agrégations groupées, tooltips, périodes, export. |
 | Planned | US-UI-09 | Pivot View | Données pivots multi-indicateurs | P2 | Colonnes dynamiques par définition + visualisation croisée réelle. |
@@ -46,9 +46,13 @@ Objectif : garder une source unique de vérité sur les fonctionnalités livrée
 ### Version 0.3 (Priorité production MVP+)
 
 - Finaliser `Validation JSON Schema` (US-DS-06).
-- Implémenter `pagination` et `tri` pour List/Search (US-UI-04, US-UI-05, US-UI-06).
+- Implémenter `pagination` et `tri` pour List/Search (US-UI-04, US-UI-05, US-UI-06). ✅
 - Renforcer les vues Graph/Pivot/Calendar/Gantt avec fonctionnalités métier minimales (US-UI-08..11 selon priorité).
 - Ajouter sécurité de base sur règles/actions (US-SEC-01, US-SEC-02).
+
+### Release Notes
+
+- 2026-03-13 — US-UI-04 / US-UI-05 / US-UI-06 : pagination côté client, tri sur colonnes et sélection de taille de page pour List/Search (`enablePaging`, `defaultPageSize`), avec reset de pagination sur changements de filtre/recherche.
 
 ### Version 0.4 (Qualité opérationnelle)
 

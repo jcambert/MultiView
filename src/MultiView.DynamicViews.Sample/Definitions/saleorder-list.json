@@ -4,6 +4,9 @@
   "kind": "List",
   "model": "SaleOrder",
   "title": "Liste des commandes",
+  "defaultPageSize": 10,
+  "enablePaging": true,
+  "enableSearch": true,
   "fields": [
     { "name": "Number", "label": "N°", "kind": "Text" },
     { "name": "CustomerName", "label": "Client", "kind": "Text" },

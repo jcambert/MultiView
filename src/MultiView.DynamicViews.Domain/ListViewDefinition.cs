@@ -7,4 +7,6 @@ public sealed class ListViewDefinition : DynamicViewDefinition
     public bool EnableSearch { get; init; } = true;
 
     public bool EnablePaging { get; init; } = true;
+
+    public int? DefaultPageSize { get; init; }
 }

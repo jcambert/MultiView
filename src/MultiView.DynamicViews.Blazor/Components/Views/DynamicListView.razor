@@ -4,41 +4,90 @@
 @using System.Globalization
 
 <MudPaper Class="p-3">
-@if (string.IsNullOrWhiteSpace(Definition.Title) == false)
+    @if (string.IsNullOrWhiteSpace(Definition.Title) == false)
     {
         <MudText Typo="Typo.h5" Class="mb-3">@Definition.Title</MudText>
     }
 
-    <MudTable T="object" Items="@Records" Hover="true" Dense="true" Elevation="0" @key="Definition.Id">
-        <HeaderContent>
-            @foreach (ListColumnDefinition column in Definition.Columns)
+    @if (Definition.Columns.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Elevation="0">
+            Aucune colonne configurée.
+        </MudAlert>
+    }
+    else
+    {
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-3" Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.caption">@GetSummary()</MudText>
+
+            @if (Definition.EnablePaging)
             {
-                <MudTh>@(column.Header ?? column.Field)</MudTh>
-            }
-        </HeaderContent>
-        <RowTemplate Context="record">
-            @foreach (ListColumnDefinition column in Definition.Columns)
-            {
-                ViewFieldDefinition? fieldDefinition = GetFieldDefinition(column.Field);
-                <MudTd DataLabel="@(column.Header ?? column.Field)" @key="GetCellKey(record, column.Field)">
-                    @if (fieldDefinition is not null)
+                <MudSelect T="int" Label="Éléments / page" Value="_pageSize" ValueChanged="OnPageSizeChanged">
+                    @foreach (int size in _availablePageSizes)
                     {
-                        <DynamicFieldRenderer
-                            @key="GetCellKey(record, fieldDefinition.Name)"
-                            Record="@record"
-                            FieldDefinition="@fieldDefinition"
-                            DisplayOnlyMode="true"
-                            EnabledDefault="false"
-                            VisibleDefault="true" />
+                        <MudSelectItem Value="@size">@size</MudSelectItem>
                     }
-                    else
-                    {
-                        <span>@FormatFallback(record, column.Field)</span>
-                    }
-                </MudTd>
+                </MudSelect>
+
+                <MudSpacer />
+                <MudText Typo="Typo.caption">Page @(_currentPageIndex + 1) / @TotalPages</MudText>
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="PreviousPage" Disabled="@(!CanGoPrevious)">
+                    Précédent
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Size="Size.Small" OnClick="NextPage" Disabled="@(!CanGoNext)">
+                    Suivant
+                </MudButton>
             }
-        </RowTemplate>
-    </MudTable>
+        </MudStack>
+
+        @if (VisibleRecords.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info" Elevation="0">
+                Aucun résultat.
+            </MudAlert>
+        }
+        else
+        {
+            <MudTable T="object" Items="@VisibleRecords" Hover="true" Dense="true" Elevation="0" @key="Definition.Id">
+                <HeaderContent>
+                    @foreach (ListColumnDefinition column in Definition.Columns)
+                    {
+                        <MudTh @onclick="() => ToggleSort(column.Field)" Style="cursor: pointer;">
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                <span>@(column.Header ?? column.Field)</span>
+                                @if (_sortField is not null && string.Equals(_sortField, column.Field, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <MudText Typo="Typo.caption">@(_sortAscending ? "▲" : "▼")</MudText>
+                                }
+                            </MudStack>
+                        </MudTh>
+                    }
+                </HeaderContent>
+                <RowTemplate Context="record">
+                    @foreach (ListColumnDefinition column in Definition.Columns)
+                    {
+                        ViewFieldDefinition? fieldDefinition = GetFieldDefinition(column.Field);
+                        <MudTd DataLabel="@(column.Header ?? column.Field)" @key="GetCellKey(record, column.Field)">
+                            @if (fieldDefinition is not null)
+                            {
+                                <DynamicFieldRenderer
+                                    @key="GetCellKey(record, fieldDefinition.Name)"
+                                    Record="@record"
+                                    FieldDefinition="@fieldDefinition"
+                                    DisplayOnlyMode="true"
+                                    EnabledDefault="false"
+                                    VisibleDefault="true" />
+                            }
+                            else
+                            {
+                                <span>@FormatFallback(record, column.Field)</span>
+                            }
+                        </MudTd>
+                    }
+                </RowTemplate>
+            </MudTable>
+        }
+    }
 </MudPaper>
 
 @code {
@@ -50,6 +99,47 @@
 
     [Parameter]
     public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
+
+    private readonly int[] _availablePageSizes = [5, 10, 20, 50, 100];
+
+    private string? _sortField;
+    private bool _sortAscending = true;
+    private int _currentPageIndex;
+    private int _pageSize = 10;
+
+    private IReadOnlyList<object> SortedRecords =>
+        string.IsNullOrWhiteSpace(_sortField)
+            ? Records
+            : [.. Records.OrderBy(record => record, new FieldComparer(RecordValue, _sortAscending))];
+
+    private IReadOnlyList<object> VisibleRecords
+    {
+        get
+        {
+            if (!Definition.EnablePaging)
+            {
+                return SortedRecords;
+            }
+
+            EnsurePagingBounds();
+            int skip = _currentPageIndex * _pageSize;
+
+            return [.. SortedRecords.Skip(skip).Take(_pageSize)];
+        }
+    }
+
+    private int TotalRecords => SortedRecords.Count;
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalRecords / (double)_pageSize));
+
+    private bool CanGoPrevious => _currentPageIndex > 0;
+
+    private bool CanGoNext => _currentPageIndex + 1 < TotalPages;
+
+    protected override void OnParametersSet()
+    {
+        SyncPagingState();
+    }
 
     private ViewFieldDefinition? GetFieldDefinition(string field)
     {
@@ -85,5 +175,166 @@
     {
         object? id = PropertyAccessor.GetValue(record, "Id");
         return id?.ToString() ?? record.GetHashCode().ToString("X");
+    }
+
+    private object? RecordValue(object record) => PropertyAccessor.GetValue(record, _sortField ?? string.Empty);
+
+    private void ToggleSort(string field)
+    {
+        if (_sortField is not null && string.Equals(_sortField, field, StringComparison.OrdinalIgnoreCase))
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortField = field;
+            _sortAscending = true;
+        }
+
+        _currentPageIndex = 0;
+    }
+
+    private void PreviousPage()
+    {
+        if (CanGoPrevious)
+        {
+            _currentPageIndex--;
+        }
+    }
+
+    private void NextPage()
+    {
+        if (CanGoNext)
+        {
+            _currentPageIndex++;
+        }
+    }
+
+    private void OnPageSizeChanged(int newPageSize)
+    {
+        int safePageSize = newPageSize <= 0 ? 10 : newPageSize;
+        if (_pageSize != safePageSize)
+        {
+            _pageSize = safePageSize;
+            _currentPageIndex = 0;
+        }
+    }
+
+    private string GetSummary()
+    {
+        return Definition.EnablePaging
+            ? $"{TotalRecords} enregistrement(s) - page {_currentPageIndex + 1}/{TotalPages}"
+            : $"{TotalRecords} enregistrement(s)";
+    }
+
+    private void SyncPagingState()
+    {
+        _pageSize = Definition.DefaultPageSize ?? _pageSize;
+        if (_pageSize <= 0)
+        {
+            _pageSize = 10;
+        }
+
+        if (_sortField is null || !Definition.Columns.Any(column => string.Equals(column.Field, _sortField, StringComparison.OrdinalIgnoreCase)))
+        {
+            _sortField = Definition.Columns.FirstOrDefault()?.Field;
+            _sortAscending = true;
+        }
+
+        EnsurePagingBounds();
+    }
+
+    private void EnsurePagingBounds()
+    {
+        if (_pageSize <= 0)
+        {
+            _pageSize = 10;
+        }
+
+        if (_currentPageIndex >= TotalPages)
+        {
+            _currentPageIndex = Math.Max(0, TotalPages - 1);
+        }
+
+        if (_currentPageIndex < 0)
+        {
+            _currentPageIndex = 0;
+        }
+    }
+
+    private sealed class FieldComparer(
+        Func<object, object?> selector,
+        bool ascending) : IComparer<object>
+    {
+        public int Compare(object? x, object? y)
+        {
+            int comparison = CompareValues(selector(x!), selector(y!));
+            return ascending ? comparison : -comparison;
+        }
+
+        private static int CompareValues(object? left, object? right)
+        {
+            if (left is null && right is null)
+            {
+                return 0;
+            }
+
+            if (left is null)
+            {
+                return -1;
+            }
+
+            if (right is null)
+            {
+                return 1;
+            }
+
+            if (left is bool leftBoolean && right is bool rightBoolean)
+            {
+                return leftBoolean.CompareTo(rightBoolean);
+            }
+
+            if (TryGetDecimal(left, out decimal leftDecimal) && TryGetDecimal(right, out decimal rightDecimal))
+            {
+                return leftDecimal.CompareTo(rightDecimal);
+            }
+
+            if (left is DateTime leftDate && right is DateTime rightDate)
+            {
+                return leftDate.CompareTo(rightDate);
+            }
+
+            return string.Compare(
+                left.ToString(),
+                right.ToString(),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryGetDecimal(object value, out decimal result)
+        {
+            switch (value)
+            {
+                case decimal decimalValue:
+                    result = decimalValue;
+                    return true;
+                case double doubleValue:
+                    result = (decimal)doubleValue;
+                    return true;
+                case float floatValue:
+                    result = (decimal)floatValue;
+                    return true;
+                case int intValue:
+                    result = intValue;
+                    return true;
+                case long longValue:
+                    result = longValue;
+                    return true;
+                case string text when decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out result):
+                    return true;
+                default:
+                    result = 0m;
+                    return false;
+            }
+        }
     }
 }
