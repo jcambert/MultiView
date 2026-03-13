@@ -4,6 +4,34 @@
   "kind": "Kanban",
   "model": "SaleOrder",
   "title": "Kanban des commandes",
+  "groupByField": "Status",
+  "columns": [
+    {
+      "key": "draft",
+      "title": "Brouillons",
+      "value": "Draft",
+      "order": 10
+    },
+    {
+      "key": "confirmed-large",
+      "title": "Confirmées prioritaires",
+      "when": "Status == 'Confirmed' and Amount >= 10000",
+      "order": 20
+    },
+    {
+      "key": "confirmed",
+      "title": "Confirmées",
+      "value": "Confirmed",
+      "order": 30
+    },
+    {
+      "key": "cancelled",
+      "title": "Annulées",
+      "value": "Cancelled",
+      "order": 40
+    }
+  ],
+  "showUnassignedColumn": true,
   "fields": [
     { "name": "Number", "label": "N°", "kind": "Text" },
     { "name": "CustomerName", "label": "Client", "kind": "Text" },
@@ -12,7 +40,6 @@
     { "name": "Status", "label": "État", "kind": "Select", "widget": "select", "widgetOptions": ["Draft","Confirmed","Cancelled"] },
     { "name": "Confirmed", "label": "Confirmée", "kind": "Boolean" }
   ],
-  "groupByField": "Status",
   "card": {
     "headerField": "Number",
     "footerField": "CustomerName",

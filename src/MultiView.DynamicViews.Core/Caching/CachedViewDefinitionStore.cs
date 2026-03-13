@@ -232,6 +232,8 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
             Actions = MergeByName(baseDefinition.Actions, overlay.Actions, action => action.Name),
             Rules = overlay.Rules ?? baseDefinition.Rules,
             GroupByField = string.IsNullOrWhiteSpace(overlay.GroupByField) ? baseDefinition.GroupByField : overlay.GroupByField,
+            Columns = MergeByName(baseDefinition.Columns, overlay.Columns, column => column.Key),
+            ShowUnassignedColumn = overlay.ShowUnassignedColumn ?? baseDefinition.ShowUnassignedColumn,
             Card = overlay.Card ?? baseDefinition.Card
         };
     }
@@ -446,6 +448,11 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
                 Actions = actions,
                 Rules = kanbanDefinition.Rules,
                 GroupByField = kanbanDefinition.GroupByField,
+                Columns = ApplyRemoval(
+                    kanbanDefinition.Columns,
+                    column => column.Key,
+                    composition.RemoveColumns),
+                ShowUnassignedColumn = kanbanDefinition.ShowUnassignedColumn,
                 Card = kanbanDefinition.Card
             };
         }
@@ -712,6 +719,8 @@ public sealed class CachedViewDefinitionStore : IViewDefinitionStore
                 Actions = definition.Actions,
                 Rules = definition.Rules,
                 GroupByField = ((KanbanViewDefinition)definition).GroupByField,
+                Columns = ((KanbanViewDefinition)definition).Columns,
+                ShowUnassignedColumn = ((KanbanViewDefinition)definition).ShowUnassignedColumn,
                 Card = ((KanbanViewDefinition)definition).Card
             },
             DynamicViewKind.Search => new SearchViewDefinition

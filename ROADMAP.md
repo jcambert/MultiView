@@ -30,7 +30,7 @@ Objectif : garder une source unique de vérité sur les fonctionnalités livrée
 | Done | US-UI-04 | List View | Pagination côté client + sélection d’affichage | P1 | `enablePaging` pilote la pagination avec taille de page configurable. |
 | Done | US-UI-05 | List View | Recherche globale + tri multi-colonnes | P1 | Tri multi-colonnes côté client implémenté avec pagination associée. |
 | Done | US-UI-06 | Search View | Pagination + tri dans Search | P1 | Tri + pagination côté client dans Search avec `defaultPageSize` et reset d’état. |
-| Planned | US-UI-07 | Kanban View | Colonnes dynamiques sur règles | P2 | Colonnes/affichage de carte pilotés par la définition et règles d’affichage. |
+| Done | US-UI-07 | Kanban View | Colonnes dynamiques sur règles | P2 | Colonnes de Kanban explicites, règles `when`, fallback `groupByField` et option `showUnassignedColumn`. |
 | Planned | US-UI-08 | Graph View | Vue analytique réelle | P2 | Agrégations groupées, tooltips, périodes, export. |
 | Planned | US-UI-09 | Pivot View | Données pivots multi-indicateurs | P2 | Colonnes dynamiques par définition + visualisation croisée réelle. |
 | Planned | US-UI-10 | Calendar View | Composant calendrier robuste | P2 | Bucketing hebdomadaire/mensuel, collisions, actions sur période. |
@@ -47,12 +47,14 @@ Objectif : garder une source unique de vérité sur les fonctionnalités livrée
 
 - Finaliser `Validation JSON Schema` (US-DS-06).
 - Implémenter `pagination` et `tri` pour List/Search (US-UI-04, US-UI-05, US-UI-06). ✅
+- Finaliser Kanban avancé (US-UI-07). ✅
 - Renforcer les vues Graph/Pivot/Calendar/Gantt avec fonctionnalités métier minimales (US-UI-08..11 selon priorité).
 - Ajouter sécurité de base sur règles/actions (US-SEC-01, US-SEC-02).
 
 ### Release Notes
 
 - 2026-03-13 — US-UI-04 / US-UI-05 / US-UI-06 : pagination côté client, tri sur colonnes et sélection de taille de page pour List/Search (`enablePaging`, `defaultPageSize`), avec reset de pagination sur changements de filtre/recherche.
+- 2026-03-13 — US-UI-07 : colonnes Kanban explicites (`columns`), matching par expression (`when`) ou par valeur (`value`), matching fallback par `groupByField`, et `showUnassignedColumn`.
 
 ### Version 0.4 (Qualité opérationnelle)
 

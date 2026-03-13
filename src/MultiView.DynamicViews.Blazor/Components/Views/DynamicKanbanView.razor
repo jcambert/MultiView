@@ -1,6 +1,8 @@
 @using MudBlazor
 @using MultiView.DynamicViews.Core.Abstractions
+@using MultiView.DynamicViews.Core.RuleEvaluator
 @using MultiView.DynamicViews.Domain.Model
+@using System.Globalization
 
 <MudPaper Class="p-3">
     @if (string.IsNullOrWhiteSpace(Definition.Title) == false)
@@ -8,44 +10,66 @@
         <MudText Typo="Typo.h5" Class="mb-3">@Definition.Title</MudText>
     }
 
-    <MudGrid>
-        @foreach (var stage in GroupedRecords)
-        {
-            <MudItem xs="12" sm="6" md="4" lg="3">
-                <MudPaper Class="pa-2" Elevation="1" Outlined="true">
-                    <MudText Typo="Typo.h6" Class="mb-3">@stage.Key</MudText>
+    @if (VisibleColumns.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Elevation="0">
+            Aucune colonne Kanban configurée.
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid Spacing="3">
+            @foreach (KanbanColumn column in VisibleColumns)
+            {
+                <MudItem xs="12" sm="6" md="@(GetColumnWidth())">
+                    <MudPaper Class="pa-2" Elevation="1" Outlined="true">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                            <MudText Typo="Typo.h6">@column.Title</MudText>
+                            <MudChip T="int" Size="Size.Small" Variant="Variant.Outlined">@column.Cards.Count</MudChip>
+                        </MudStack>
 
-                    <MudStack Spacing="2">
-                        @foreach (object record in stage.Value)
-                        {
-                            <MudPaper Class="pa-2" Elevation="0">
-                                <MudText Typo="Typo.subtitle2">@GetValue(record, Definition.Card.HeaderField)</MudText>
-                                <MudText Typo="Typo.body2" Class="mb-2">@GetValue(record, Definition.Card.FooterField)</MudText>
+                        <MudStack Spacing="2">
+                            @foreach (object record in column.Cards)
+                            {
+                                <MudPaper Class="pa-2" Elevation="0">
+                                    <MudText Typo="Typo.subtitle2">@FormatField(record, Definition.Card.HeaderField)</MudText>
+                                    <MudText Typo="Typo.body2" Class="mb-2">@FormatField(record, Definition.Card.FooterField)</MudText>
 
-                                @foreach (string detail in Definition.Card.DetailFields)
-                                {
-                                    <div class="mb-1">
-                                        <small>@detail</small>
-                                        <div>@GetValue(record, detail)</div>
-                                    </div>
-                                }
+                                    @foreach (string detailField in Definition.Card.DetailFields)
+                                    {
+                                        <div class="mb-1">
+                                            <small>@detailField</small>
+                                            <div>@FormatField(record, detailField)</div>
+                                        </div>
+                                    }
 
-                                @if (!string.IsNullOrWhiteSpace(Definition.Card.ColorField))
-                                {
-                                    <MudText Typo="Typo.caption" Color="Color.Info">@GetValue(record, Definition.Card.ColorField)</MudText>
-                                }
-                            </MudPaper>
-                        }
-                    </MudStack>
-                </MudPaper>
-            </MudItem>
-        }
-    </MudGrid>
+                                    @if (!string.IsNullOrWhiteSpace(Definition.Card.ColorField))
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Info">@FormatField(record, Definition.Card.ColorField)</MudText>
+                                    }
+                                </MudPaper>
+                            }
+
+                            @if (column.Cards.Count == 0)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Aucune carte.</MudText>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+    }
 </MudPaper>
 
 @code {
+    private const string DefaultGroupLabel = "Sans catégorie";
+
     [Inject]
-    private MultiView.DynamicViews.Core.Abstractions.IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
+    private IRuleEvaluator RuleEvaluator { get; set; } = null!;
+
+    [Inject]
+    private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
 
     [Parameter]
     public KanbanViewDefinition Definition { get; set; } = null!;
@@ -53,13 +77,235 @@
     [Parameter]
     public IReadOnlyList<object> Records { get; set; } = Array.Empty<object>();
 
-    private IReadOnlyDictionary<string, IReadOnlyList<object>> GroupedRecords => Records
-        .GroupBy(record => GetValue(record, Definition.GroupByField) ?? "Non défini")
-        .ToDictionary(group => group.Key, group => (IReadOnlyList<object>)group.ToList(), StringComparer.OrdinalIgnoreCase);
+    [Parameter]
+    public IReadOnlyDictionary<string, object?>? GlobalContext { get; set; }
 
-    private string? GetValue(object record, string field)
+    private IReadOnlyList<KanbanColumn> VisibleColumns => BuildColumns();
+
+    private sealed record KanbanColumn(string Key, string Title, IReadOnlyList<object> Cards);
+
+    private IReadOnlyList<KanbanColumn> BuildColumns()
     {
-        object? value = PropertyAccessor.GetValue(record, field);
-        return value?.ToString();
+        if (Definition.Columns.Count > 0)
+        {
+            return BuildColumnsFromDefinition();
+        }
+
+        return BuildColumnsByField();
+    }
+
+    private IReadOnlyList<KanbanColumn> BuildColumnsFromDefinition()
+    {
+        IReadOnlyList<KanbanColumnDefinition> columns = Definition.Columns
+            .OrderBy(column => column.Order)
+            .ThenBy(column => column.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var buckets = columns.ToDictionary(
+            column => column.Key,
+            _ => new List<object>(),
+            StringComparer.OrdinalIgnoreCase);
+
+        List<object> unassigned = [];
+
+        foreach (object record in Records)
+        {
+            bool matched = false;
+            foreach (KanbanColumnDefinition column in columns)
+            {
+                if (!IsMatch(record, column))
+                {
+                    continue;
+                }
+
+                buckets[column.Key].Add(record);
+                matched = true;
+                break;
+            }
+
+            if (!matched)
+            {
+                unassigned.Add(record);
+            }
+        }
+
+        List<KanbanColumn> result = [];
+        foreach (KanbanColumnDefinition column in columns)
+        {
+            result.Add(new KanbanColumn(
+                column.Key,
+                column.Title,
+                [.. buckets[column.Key]]));
+        }
+
+        if (Definition.ShowUnassignedColumn.GetValueOrDefault() && unassigned.Count > 0)
+        {
+            result.Add(new KanbanColumn("unassigned", "Non classé", [.. unassigned]));
+        }
+
+        return result;
+    }
+
+    private bool IsMatch(object record, KanbanColumnDefinition column)
+    {
+        if (string.IsNullOrWhiteSpace(column.When) == false)
+        {
+            return EvaluateRule(record, column.When!);
+        }
+
+        if (column.Value is null)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(Definition.GroupByField))
+        {
+            return false;
+        }
+
+        object? value = PropertyAccessor.GetValue(record, Definition.GroupByField);
+        return FieldEquals(column.Value, value);
+    }
+
+    private bool EvaluateRule(object record, string when)
+    {
+        try
+        {
+            var context = new RecordRuleValueAccessor(PropertyAccessor, record, GlobalContext);
+            return RuleEvaluator.Evaluate(when, context);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool FieldEquals(string expectedValue, object? actual)
+    {
+        if (expectedValue is null && actual is null)
+        {
+            return true;
+        }
+
+        if (expectedValue is null || actual is null)
+        {
+            return false;
+        }
+
+        if (decimal.TryParse(expectedValue, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal expectedDecimal)
+            && TryConvertToDecimal(actual, out decimal actualDecimal))
+        {
+            return expectedDecimal == actualDecimal;
+        }
+
+        return string.Equals(
+            actual.ToString(),
+            expectedValue,
+            StringComparison.InvariantCultureIgnoreCase);
+    }
+
+    private static bool TryConvertToDecimal(object? value, out decimal result)
+    {
+        switch (value)
+        {
+            case decimal decimalValue:
+                result = decimalValue;
+                return true;
+            case double doubleValue:
+                result = (decimal)doubleValue;
+                return true;
+            case float floatValue:
+                result = (decimal)floatValue;
+                return true;
+            case int intValue:
+                result = intValue;
+                return true;
+            case long longValue:
+                result = longValue;
+                return true;
+            case string stringValue when decimal.TryParse(stringValue, NumberStyles.Any, CultureInfo.InvariantCulture, out result):
+                return true;
+            default:
+                result = 0m;
+                return false;
+        }
+    }
+
+    private int GetColumnWidth()
+    {
+        int count = Math.Max(1, VisibleColumns.Count);
+        if (count >= 4)
+        {
+            return 3;
+        }
+
+        if (count == 3)
+        {
+            return 4;
+        }
+
+        if (count == 2)
+        {
+            return 6;
+        }
+
+        return 12;
+    }
+
+    private string FormatField(object record, string field)
+    {
+        return FormatRawValue(PropertyAccessor.GetValue(record, field));
+    }
+
+    private static string FormatRawValue(object? value)
+    {
+        return value switch
+        {
+            null => string.Empty,
+            DateTime dateTime => dateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            decimal amount => amount.ToString("N2", CultureInfo.InvariantCulture),
+            double amount => amount.ToString("N2", CultureInfo.InvariantCulture),
+            bool booleanValue => booleanValue ? "Oui" : "Non",
+            _ => value.ToString() ?? string.Empty
+        };
+    }
+
+    private static IReadOnlyList<KanbanColumn> BuildByFieldFallback(
+        string? groupByField,
+        IRecordPropertyAccessor propertyAccessor,
+        IReadOnlyList<object> records)
+    {
+        if (string.IsNullOrWhiteSpace(groupByField))
+        {
+            return [new("default", "Ensemble", records)];
+        }
+
+        Dictionary<string, List<object>> buckets = [];
+        foreach (object record in records)
+        {
+            object? groupValue = propertyAccessor.GetValue(record, groupByField);
+            string key = FormatRawValue(groupValue);
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                key = DefaultGroupLabel;
+            }
+
+            if (!buckets.TryGetValue(key, out List<object>? cardBucket))
+            {
+                cardBucket = [];
+                buckets[key] = cardBucket;
+            }
+
+            cardBucket.Add(record);
+        }
+
+        return [.. buckets
+            .Select(group => new KanbanColumn(group.Key, group.Key, [.. group.Value]))
+            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private IReadOnlyList<KanbanColumn> BuildColumnsByField()
+    {
+        return BuildByFieldFallback(Definition.GroupByField, PropertyAccessor, Records);
     }
 }

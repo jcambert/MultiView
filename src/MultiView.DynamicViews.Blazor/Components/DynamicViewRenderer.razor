@@ -16,7 +16,7 @@ else
             <DynamicListView Definition="(ListViewDefinition)Definition" Records="RecordsContext" />
             break;
         case DynamicViewKind.Kanban:
-            <DynamicKanbanView Definition="(KanbanViewDefinition)Definition" Records="RecordsContext" />
+            <DynamicKanbanView Definition="(KanbanViewDefinition)Definition" Records="RecordsContext" GlobalContext="GlobalContext" />
             break;
         case DynamicViewKind.Search:
             <DynamicSearchView Definition="(SearchViewDefinition)Definition" Records="RecordsContext" />
