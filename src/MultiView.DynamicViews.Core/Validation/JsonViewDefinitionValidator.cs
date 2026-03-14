@@ -13,14 +13,14 @@ public sealed class JsonViewDefinitionValidator : IViewDefinitionValidator
 
     private static readonly Dictionary<DynamicViewKind, HashSet<string>> KindRootProperties = new()
     {
-        [DynamicViewKind.Form] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "sections" },
-        [DynamicViewKind.List] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "columns", "enableSearch", "enablePaging", "defaultPageSize" },
-        [DynamicViewKind.Kanban] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "groupByField", "columns", "showUnassignedColumn", "card" },
-        [DynamicViewKind.Search] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "searchFields", "enablePaging", "defaultPageSize" },
-        [DynamicViewKind.Graph] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "categoryField", "valueField", "seriesField", "aggregation", "chartType", "limit" },
-        [DynamicViewKind.Pivot] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "rowField", "columnField", "valueField", "aggregation", "valuePrecision" },
-        [DynamicViewKind.Calendar] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "startDateField", "endDateField", "titleField", "subtitleField", "bucket", "limitPerBucket" },
-        [DynamicViewKind.Gantt] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "startDateField", "endDateField", "labelField", "groupByField", "progressField", "limit" }
+        [DynamicViewKind.Form] = ["sections"],
+        [DynamicViewKind.List] = ["columns", "enableSearch", "enablePaging", "defaultPageSize"],
+        [DynamicViewKind.Kanban] = ["groupByField", "columns", "showUnassignedColumn", "card"],
+        [DynamicViewKind.Search] = ["searchFields", "enablePaging", "defaultPageSize"],
+        [DynamicViewKind.Graph] = ["categoryField", "valueField", "seriesField", "aggregation", "chartType", "limit"],
+        [DynamicViewKind.Pivot] = ["rowField", "columnField", "valueField", "aggregation", "valuePrecision"],
+        [DynamicViewKind.Calendar] = ["startDateField", "endDateField", "titleField", "subtitleField", "bucket", "limitPerBucket"],
+        [DynamicViewKind.Gantt] = ["startDateField", "endDateField", "labelField", "groupByField", "progressField", "limit"]
     };
 
     private static readonly HashSet<string> FieldProperties = new(StringComparer.OrdinalIgnoreCase)
@@ -28,17 +28,18 @@ public sealed class JsonViewDefinitionValidator : IViewDefinitionValidator
         "name", "label", "kind", "widget", "searchWidget", "searchLabel", "searchWidgetOptions", "format", "cssClass", "defaultValue", "widgetOptions", "rules"
     };
 
+    private static readonly HashSet<string> ActionProperties = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "name", "label", "icon", "cssClass", "visibilityRule", "enabledRule"
+    };
+
     private readonly ViewDefinitionValidationOptions _options;
 
-    public JsonViewDefinitionValidator(ViewDefinitionValidationOptions options)
-    {
-        _options = options;
-    }
+    public JsonViewDefinitionValidator(ViewDefinitionValidationOptions options) => _options = options;
 
     public ViewDefinitionValidationResult Validate(string json)
     {
         ViewDefinitionValidationResult result = new();
-
         if (string.IsNullOrWhiteSpace(json))
         {
             result.AddError("$", "Le JSON de definition est vide.");
@@ -46,15 +47,10 @@ public sealed class JsonViewDefinitionValidator : IViewDefinitionValidator
         }
 
         JsonDocument? document = null;
-        try
-        {
-            document = JsonDocument.Parse(json);
-        }
+        try { document = JsonDocument.Parse(json); }
         catch (JsonException exception)
         {
-            result.AddError(
-                "$",
-                $"JSON invalide (ligne {exception.LineNumber}, position {exception.BytePositionInLine}): {exception.Message}");
+            result.AddError("$", $"JSON invalide (ligne {exception.LineNumber}, position {exception.BytePositionInLine}): {exception.Message}");
             return result;
         }
 
@@ -67,76 +63,33 @@ public sealed class JsonViewDefinitionValidator : IViewDefinitionValidator
                 return result;
             }
 
-            ValidateRequiredString(root, "id", "$.id", result);
-            ValidateRequiredString(root, "model", "$.model", result);
-            ValidateRequiredString(root, "name", "$.name", result);
-            ValidateRequiredString(root, "kind", "$.kind", result);
+            RequiredString(root, "id", "$.id", result);
+            RequiredString(root, "model", "$.model", result);
+            RequiredString(root, "name", "$.name", result);
+            RequiredString(root, "kind", "$.kind", result);
             ValidateFields(root, result);
+            ValidateActions(root, result);
 
+            HashSet<string> fieldNames = CollectFieldNames(root, result);
             DynamicViewKind? kind = ParseKind(root, result);
-            if (kind.HasValue)
+            if (!kind.HasValue)
             {
-                ValidateUnknownRootProperties(root, kind.Value, result);
-                ValidateKindSpecific(root, kind.Value, result);
+                return result;
             }
+
+            HashSet<string> allowedRoot = new(CommonRootProperties, StringComparer.OrdinalIgnoreCase);
+            foreach (string property in KindRootProperties[kind.Value]) { allowedRoot.Add(property); }
+            ValidateUnknown(root, allowedRoot, "$", result);
+
+            ValidateReferences(root, kind.Value, fieldNames, result);
         }
 
         return result;
     }
 
-    private void ValidateKindSpecific(JsonElement root, DynamicViewKind kind, ViewDefinitionValidationResult result)
-    {
-        switch (kind)
-        {
-            case DynamicViewKind.Kanban:
-                ValidateRequiredObject(root, "card", "$.card", result);
-                break;
-            case DynamicViewKind.Graph:
-                ValidateRequiredString(root, "categoryField", "$.categoryField", result);
-                ValidateRequiredString(root, "valueField", "$.valueField", result);
-                break;
-            case DynamicViewKind.Pivot:
-                ValidateRequiredString(root, "rowField", "$.rowField", result);
-                ValidateRequiredString(root, "columnField", "$.columnField", result);
-                ValidateRequiredString(root, "valueField", "$.valueField", result);
-                break;
-            case DynamicViewKind.Calendar:
-                ValidateRequiredString(root, "startDateField", "$.startDateField", result);
-                break;
-            case DynamicViewKind.Gantt:
-                ValidateRequiredString(root, "startDateField", "$.startDateField", result);
-                ValidateRequiredString(root, "endDateField", "$.endDateField", result);
-                ValidateRequiredString(root, "labelField", "$.labelField", result);
-                break;
-        }
-    }
-
-    private void ValidateUnknownRootProperties(JsonElement root, DynamicViewKind kind, ViewDefinitionValidationResult result)
-    {
-        HashSet<string> allowedProperties = new(CommonRootProperties, StringComparer.OrdinalIgnoreCase);
-        foreach (string propertyName in KindRootProperties[kind])
-        {
-            allowedProperties.Add(propertyName);
-        }
-
-        foreach (JsonProperty property in root.EnumerateObject())
-        {
-            if (allowedProperties.Contains(property.Name))
-            {
-                continue;
-            }
-
-            HandleUnknownProperty($"$.{property.Name}", $"Champ inconnu '{property.Name}'.", result);
-        }
-    }
-
     private void ValidateFields(JsonElement root, ViewDefinitionValidationResult result)
     {
-        if (!TryGetPropertyIgnoreCase(root, "fields", out JsonElement fields))
-        {
-            return;
-        }
-
+        if (!TryGet(root, "fields", out JsonElement fields)) { return; }
         if (fields.ValueKind != JsonValueKind.Array)
         {
             result.AddError("$.fields", "La propriete 'fields' doit etre un tableau.");
@@ -154,25 +107,14 @@ public sealed class JsonViewDefinitionValidator : IViewDefinitionValidator
                 continue;
             }
 
-            ValidateRequiredString(field, "name", $"{path}.name", result);
-            ValidateRequiredString(field, "kind", $"{path}.kind", result);
+            RequiredString(field, "name", $"{path}.name", result);
+            RequiredString(field, "kind", $"{path}.kind", result);
+            ValidateUnknown(field, FieldProperties, path, result);
 
-            foreach (JsonProperty property in field.EnumerateObject())
-            {
-                if (FieldProperties.Contains(property.Name))
-                {
-                    continue;
-                }
-
-                HandleUnknownProperty($"{path}.{property.Name}", $"Champ inconnu '{property.Name}'.", result);
-            }
-
-            if (TryGetPropertyIgnoreCase(field, "kind", out JsonElement kindElement)
-                && kindElement.ValueKind == JsonValueKind.String)
+            if (TryGet(field, "kind", out JsonElement kindElement) && kindElement.ValueKind == JsonValueKind.String)
             {
                 string? kindRaw = kindElement.GetString();
-                if (!string.IsNullOrWhiteSpace(kindRaw)
-                    && !Enum.TryParse<ViewFieldKind>(kindRaw, ignoreCase: true, out _))
+                if (!string.IsNullOrWhiteSpace(kindRaw) && !Enum.TryParse<ViewFieldKind>(kindRaw, true, out _))
                 {
                     result.AddError($"{path}.kind", $"Kind de champ inconnu: '{kindRaw}'.");
                 }
@@ -182,80 +124,161 @@ public sealed class JsonViewDefinitionValidator : IViewDefinitionValidator
         }
     }
 
-    private void HandleUnknownProperty(string path, string message, ViewDefinitionValidationResult result)
+    private void ValidateActions(JsonElement root, ViewDefinitionValidationResult result)
     {
-        switch (_options.UnknownFieldHandling)
+        if (!TryGet(root, "actions", out JsonElement actions)) { return; }
+        if (actions.ValueKind != JsonValueKind.Array)
         {
-            case UnknownJsonFieldHandling.Ignore:
+            result.AddError("$.actions", "La propriete 'actions' doit etre un tableau.");
+            return;
+        }
+
+        int index = 0;
+        foreach (JsonElement action in actions.EnumerateArray())
+        {
+            string path = $"$.actions[{index}]";
+            if (action.ValueKind != JsonValueKind.Object)
+            {
+                result.AddError(path, "Chaque action doit etre un objet.");
+                index++;
+                continue;
+            }
+
+            RequiredString(action, "name", $"{path}.name", result);
+            RequiredString(action, "label", $"{path}.label", result);
+            ValidateUnknown(action, ActionProperties, path, result);
+            index++;
+        }
+    }
+
+    private static HashSet<string> CollectFieldNames(JsonElement root, ViewDefinitionValidationResult result)
+    {
+        HashSet<string> names = new(StringComparer.OrdinalIgnoreCase);
+        if (!TryGet(root, "fields", out JsonElement fields) || fields.ValueKind != JsonValueKind.Array) { return names; }
+
+        int index = 0;
+        foreach (JsonElement field in fields.EnumerateArray())
+        {
+            if (TryGet(field, "name", out JsonElement nameElement) && nameElement.ValueKind == JsonValueKind.String)
+            {
+                string? name = nameElement.GetString();
+                if (!string.IsNullOrWhiteSpace(name) && !names.Add(name))
+                {
+                    result.AddError($"$.fields[{index}].name", $"Le champ '{name}' est duplique.");
+                }
+            }
+            index++;
+        }
+
+        return names;
+    }
+
+    private void ValidateReferences(JsonElement root, DynamicViewKind kind, IReadOnlySet<string> fields, ViewDefinitionValidationResult result)
+    {
+        switch (kind)
+        {
+            case DynamicViewKind.Form: RefArray(root, "sections", "fields", "$.sections", fields, result); break;
+            case DynamicViewKind.List: RefArray(root, "columns", "field", "$.columns", fields, result); IntMin(root, "defaultPageSize", "$.defaultPageSize", 1, result); break;
+            case DynamicViewKind.Kanban:
+                Ref(root, "groupByField", "$.groupByField", fields, result);
+                RequiredObject(root, "card", "$.card", result);
+                if (TryGet(root, "card", out JsonElement card) && card.ValueKind == JsonValueKind.Object)
+                {
+                    RequiredString(card, "headerField", "$.card.headerField", result); Ref(card, "headerField", "$.card.headerField", fields, result);
+                    RequiredString(card, "footerField", "$.card.footerField", result); Ref(card, "footerField", "$.card.footerField", fields, result);
+                    RefArrayItems(card, "detailFields", "$.card.detailFields", fields, result);
+                    Ref(card, "colorField", "$.card.colorField", fields, result);
+                }
                 break;
-            case UnknownJsonFieldHandling.Warning:
-                result.AddWarning(path, message);
-                break;
-            case UnknownJsonFieldHandling.Error:
-            default:
-                result.AddError(path, message);
-                break;
+            case DynamicViewKind.Search: RefArrayItems(root, "searchFields", "$.searchFields", fields, result); IntMin(root, "defaultPageSize", "$.defaultPageSize", 1, result); break;
+            case DynamicViewKind.Graph: RequiredString(root, "categoryField", "$.categoryField", result); RequiredString(root, "valueField", "$.valueField", result); Ref(root, "categoryField", "$.categoryField", fields, result); Ref(root, "valueField", "$.valueField", fields, result); Ref(root, "seriesField", "$.seriesField", fields, result); break;
+            case DynamicViewKind.Pivot: RequiredString(root, "rowField", "$.rowField", result); RequiredString(root, "columnField", "$.columnField", result); RequiredString(root, "valueField", "$.valueField", result); Ref(root, "rowField", "$.rowField", fields, result); Ref(root, "columnField", "$.columnField", fields, result); Ref(root, "valueField", "$.valueField", fields, result); break;
+            case DynamicViewKind.Calendar: RequiredString(root, "startDateField", "$.startDateField", result); Ref(root, "startDateField", "$.startDateField", fields, result); Ref(root, "endDateField", "$.endDateField", fields, result); Ref(root, "titleField", "$.titleField", fields, result); Ref(root, "subtitleField", "$.subtitleField", fields, result); break;
+            case DynamicViewKind.Gantt: RequiredString(root, "startDateField", "$.startDateField", result); RequiredString(root, "endDateField", "$.endDateField", result); RequiredString(root, "labelField", "$.labelField", result); Ref(root, "startDateField", "$.startDateField", fields, result); Ref(root, "endDateField", "$.endDateField", fields, result); Ref(root, "labelField", "$.labelField", fields, result); Ref(root, "groupByField", "$.groupByField", fields, result); Ref(root, "progressField", "$.progressField", fields, result); break;
+        }
+    }
+
+    private static void Ref(JsonElement parent, string name, string path, IReadOnlySet<string> fields, ViewDefinitionValidationResult result)
+    {
+        if (!TryGet(parent, name, out JsonElement value) || value.ValueKind != JsonValueKind.String) { return; }
+        string? field = value.GetString();
+        if (!string.IsNullOrWhiteSpace(field) && !fields.Contains(field)) { result.AddError(path, $"Reference de champ inconnue: '{field}'."); }
+    }
+
+    private static void RefArrayItems(JsonElement parent, string name, string path, IReadOnlySet<string> fields, ViewDefinitionValidationResult result)
+    {
+        if (!TryGet(parent, name, out JsonElement value)) { return; }
+        if (value.ValueKind != JsonValueKind.Array) { result.AddError(path, "Ce champ doit etre un tableau."); return; }
+
+        int index = 0;
+        foreach (JsonElement item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String) { result.AddError($"{path}[{index}]", "Chaque element doit etre une chaine."); index++; continue; }
+            string? field = item.GetString();
+            if (!string.IsNullOrWhiteSpace(field) && !fields.Contains(field)) { result.AddError($"{path}[{index}]", $"Reference de champ inconnue: '{field}'."); }
+            index++;
+        }
+    }
+
+    private static void RefArray(JsonElement root, string collectionName, string propertyName, string path, IReadOnlySet<string> fields, ViewDefinitionValidationResult result)
+    {
+        if (!TryGet(root, collectionName, out JsonElement collection)) { return; }
+        if (collection.ValueKind != JsonValueKind.Array) { result.AddError(path, "Ce champ doit etre un tableau."); return; }
+
+        int index = 0;
+        foreach (JsonElement item in collection.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object) { result.AddError($"{path}[{index}]", "Chaque element doit etre un objet."); index++; continue; }
+            Ref(item, propertyName, $"{path}[{index}].{propertyName}", fields, result);
+            index++;
+        }
+    }
+
+    private static void IntMin(JsonElement parent, string name, string path, int min, ViewDefinitionValidationResult result)
+    {
+        if (!TryGet(parent, name, out JsonElement value) || value.ValueKind == JsonValueKind.Null) { return; }
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out int intValue)) { result.AddError(path, "Ce champ doit etre un entier."); return; }
+        if (intValue < min) { result.AddError(path, $"La valeur doit etre >= {min}."); }
+    }
+
+    private void ValidateUnknown(JsonElement element, IReadOnlySet<string> allowed, string path, ViewDefinitionValidationResult result)
+    {
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (!allowed.Contains(property.Name))
+            {
+                switch (_options.UnknownFieldHandling)
+                {
+                    case UnknownJsonFieldHandling.Warning: result.AddWarning($"{path}.{property.Name}", $"Champ inconnu '{property.Name}'."); break;
+                    case UnknownJsonFieldHandling.Error: result.AddError($"{path}.{property.Name}", $"Champ inconnu '{property.Name}'."); break;
+                }
+            }
         }
     }
 
     private static DynamicViewKind? ParseKind(JsonElement root, ViewDefinitionValidationResult result)
     {
-        if (!TryGetPropertyIgnoreCase(root, "kind", out JsonElement kindElement))
-        {
-            return null;
-        }
-
-        if (kindElement.ValueKind != JsonValueKind.String)
-        {
-            result.AddError("$.kind", "Le champ 'kind' doit etre une chaine.");
-            return null;
-        }
-
-        string? kindRawValue = kindElement.GetString();
-        if (string.IsNullOrWhiteSpace(kindRawValue))
-        {
-            result.AddError("$.kind", "Le champ 'kind' doit etre renseigne.");
-            return null;
-        }
-
-        if (!Enum.TryParse<DynamicViewKind>(kindRawValue, ignoreCase: true, out DynamicViewKind parsedKind))
-        {
-            result.AddError("$.kind", $"Type de vue inconnu: '{kindRawValue}'.");
-            return null;
-        }
-
-        return parsedKind;
+        if (!TryGet(root, "kind", out JsonElement kindElement)) { return null; }
+        if (kindElement.ValueKind != JsonValueKind.String) { result.AddError("$.kind", "Le champ 'kind' doit etre une chaine."); return null; }
+        string? raw = kindElement.GetString();
+        if (string.IsNullOrWhiteSpace(raw)) { result.AddError("$.kind", "Le champ 'kind' doit etre renseigne."); return null; }
+        if (!Enum.TryParse<DynamicViewKind>(raw, true, out DynamicViewKind kind)) { result.AddError("$.kind", $"Type de vue inconnu: '{raw}'."); return null; }
+        return kind;
     }
 
-    private static void ValidateRequiredString(JsonElement parent, string propertyName, string path, ViewDefinitionValidationResult result)
+    private static void RequiredString(JsonElement parent, string name, string path, ViewDefinitionValidationResult result)
     {
-        if (!TryGetPropertyIgnoreCase(parent, propertyName, out JsonElement value))
-        {
-            result.AddError(path, "Champ obligatoire manquant.");
-            return;
-        }
-
-        if (value.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(value.GetString()))
-        {
-            result.AddError(path, "Ce champ doit etre une chaine non vide.");
-        }
+        if (!TryGet(parent, name, out JsonElement value)) { result.AddError(path, "Champ obligatoire manquant."); return; }
+        if (value.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(value.GetString())) { result.AddError(path, "Ce champ doit etre une chaine non vide."); }
     }
 
-    private static void ValidateRequiredObject(JsonElement parent, string propertyName, string path, ViewDefinitionValidationResult result)
+    private static void RequiredObject(JsonElement parent, string name, string path, ViewDefinitionValidationResult result)
     {
-        if (!TryGetPropertyIgnoreCase(parent, propertyName, out JsonElement value))
-        {
-            result.AddError(path, "Champ obligatoire manquant.");
-            return;
-        }
-
-        if (value.ValueKind != JsonValueKind.Object)
-        {
-            result.AddError(path, "Ce champ doit etre un objet.");
-        }
+        if (!TryGet(parent, name, out JsonElement value)) { result.AddError(path, "Champ obligatoire manquant."); return; }
+        if (value.ValueKind != JsonValueKind.Object) { result.AddError(path, "Ce champ doit etre un objet."); }
     }
 
-    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    private static bool TryGet(JsonElement element, string propertyName, out JsonElement value)
     {
         foreach (JsonProperty property in element.EnumerateObject())
         {
