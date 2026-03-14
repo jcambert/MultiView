@@ -1,6 +1,6 @@
 # Roadmap Dynamic View Framework
 
-_Dernière mise à jour : 2026-03-13_
+_Dernière mise à jour : 2026-03-14_
 
 Ce document regroupe les évolutions en backlog, priorisées par user stories.
 Objectif : garder une source unique de vérité sur les fonctionnalités livrées, en cours et restantes.
@@ -26,7 +26,7 @@ Objectif : garder une source unique de vérité sur les fonctionnalités livrée
 | Done | US-CONF-01 | Paramétrage Search | Distinguer widget de formulaire/list vs filtre | P1 | `searchWidget` / `searchWidgetOptions` introduits pour `SearchView`. |
 | Done | US-CONF-02 | UX | Layout MudBlazor stable (dropdown/menus) | P0 | Documentation + providers racine (`MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider`, `MudSnackbarProvider`). |
 | In Progress | US-DS-05 | Core des définitions | Versioning des définitions | P1 | Stocker la version d’une définition et gérer la compatibilité évolutive. |
-| In Progress | US-DS-06 | Core des définitions | Validation JSON Schema | P1 | Valider format, types, dépendances et champs inconnus à l’import. |
+| In Progress | US-DS-06 | Core des définitions | Validation JSON Schema | P1 | Validation initiale implémentée (format JSON, champs requis, types, champs inconnus configurables). Reste: dépendances métiers avancées. |
 | Done | US-UI-04 | List View | Pagination côté client + sélection d’affichage | P1 | `enablePaging` pilote la pagination avec taille de page configurable. |
 | Done | US-UI-05 | List View | Recherche globale + tri multi-colonnes | P1 | Tri multi-colonnes côté client implémenté avec pagination associée. |
 | Done | US-UI-06 | Search View | Pagination + tri dans Search | P1 | Tri + pagination côté client dans Search avec `defaultPageSize` et reset d’état. |
@@ -53,6 +53,7 @@ Objectif : garder une source unique de vérité sur les fonctionnalités livrée
 
 ### Release Notes
 
+- 2026-03-14 — US-DS-06 (partiel) : ajout d’un validateur JSON côté Core branché dans `ViewDefinitionSerializer` avec erreurs détaillées (path/champ/type) et gestion configurable des champs inconnus (`Ignore`, `Warning`, `Error`).
 - 2026-03-13 — US-UI-04 / US-UI-05 / US-UI-06 : pagination côté client, tri sur colonnes et sélection de taille de page pour List/Search (`enablePaging`, `defaultPageSize`), avec reset de pagination sur changements de filtre/recherche.
 - 2026-03-13 — US-UI-07 : colonnes Kanban explicites (`columns`), matching par expression (`when`) ou par valeur (`value`), matching fallback par `groupByField`, et `showUnassignedColumn`.
 

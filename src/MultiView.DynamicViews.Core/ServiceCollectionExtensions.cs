@@ -5,6 +5,7 @@ using MultiView.DynamicViews.Core.RuleEvaluator;
 using MultiView.DynamicViews.Core.Services;
 using MultiView.DynamicViews.Core.Widgets;
 using MultiView.DynamicViews.Core.Serialization;
+using MultiView.DynamicViews.Core.Validation;
 using MultiView.DynamicViews.Core.Views;
 
 namespace MultiView.DynamicViews.Core;
@@ -14,11 +15,30 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddDynamicViewsCore(this IServiceCollection services)
     {
         services.AddMemoryCache();
+        services.AddSingleton<ViewDefinitionValidationOptions>();
+        services.AddSingleton<IViewDefinitionValidator, JsonViewDefinitionValidator>();
         services.AddSingleton<IRecordPropertyAccessor, ReflectionRecordPropertyAccessor>();
         services.AddSingleton<IViewDefinitionSerializer, ViewDefinitionSerializer>();
         services.AddSingleton<IRuleEvaluator, DefaultRuleEvaluator>();
         services.AddSingleton<IFieldWidgetRegistry, FieldWidgetRegistry>();
         services.AddSingleton<IViewActionDispatcher, DefaultViewActionDispatcher>();
+
+        return services;
+    }
+
+    public static IServiceCollection ConfigureDynamicViewValidation(
+        this IServiceCollection services,
+        Action<ViewDefinitionValidationOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+
+        services.AddSingleton(serviceProvider =>
+        {
+            ViewDefinitionValidationOptions options = serviceProvider.GetService<ViewDefinitionValidationOptions>()
+                ?? new ViewDefinitionValidationOptions();
+            configure(options);
+            return options;
+        });
 
         return services;
     }
