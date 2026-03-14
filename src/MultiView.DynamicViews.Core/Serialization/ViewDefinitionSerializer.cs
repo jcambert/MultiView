@@ -1,5 +1,6 @@
 using MultiView.DynamicViews.Domain.Model;
 using MultiView.DynamicViews.Core.Abstractions;
+using MultiView.DynamicViews.Core.Validation;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -8,9 +9,11 @@ namespace MultiView.DynamicViews.Core.Serialization;
 public sealed class ViewDefinitionSerializer : IViewDefinitionSerializer
 {
     private readonly JsonSerializerOptions _options;
+    private readonly IViewDefinitionValidator _validator;
 
-    public ViewDefinitionSerializer()
+    public ViewDefinitionSerializer(IViewDefinitionValidator validator)
     {
+        _validator = validator;
         _options = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
@@ -20,6 +23,12 @@ public sealed class ViewDefinitionSerializer : IViewDefinitionSerializer
 
     public DynamicViewDefinition Deserialize(string json)
     {
+        ViewDefinitionValidationResult validationResult = _validator.Validate(json);
+        if (validationResult.HasErrors)
+        {
+            throw new ViewDefinitionValidationException(validationResult);
+        }
+
         using JsonDocument document = JsonDocument.Parse(json);
         if (!document.RootElement.TryGetProperty("kind", out JsonElement kindElement)
             && !document.RootElement.TryGetProperty("Kind", out kindElement))

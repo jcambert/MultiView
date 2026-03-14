@@ -1,4 +1,5 @@
 using MultiView.DynamicViews.Domain.Model;
+using MultiView.DynamicViews.Core.Validation;
 
 namespace MultiView.DynamicViews.Core.Abstractions;
 
@@ -17,4 +18,9 @@ public interface IViewDefinitionSerializer
     DynamicViewDefinition Deserialize(string json);
 
     string Serialize(DynamicViewDefinition definition);
+}
+
+public interface IViewDefinitionValidator
+{
+    ViewDefinitionValidationResult Validate(string json);
 }
