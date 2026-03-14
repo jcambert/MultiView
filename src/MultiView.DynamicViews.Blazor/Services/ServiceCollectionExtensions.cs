@@ -2,9 +2,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using MudBlazor.Services;
 using MultiView.DynamicViews.Core;
+using MultiView.DynamicViews.Core.Abstractions;
+using MultiView.DynamicViews.Core.RuleEvaluator;
 using MultiView.DynamicViews.Core.Widgets;
 using MultiView.DynamicViews.Domain.Model;
 using MultiView.DynamicViews.Blazor.Components.Widgets;
+using MultiView.DynamicViews.Blazor.Services;
 
 namespace MultiView.DynamicViews.Blazor;
 
@@ -16,6 +19,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddMudServices();
         services.AddDynamicViewsCore();
+        services.AddSingleton<IRuleUserContextAccessor, BlazorAuthenticationRuleUserContextAccessor>();
 
         services.RemoveAll<IFieldWidgetRegistry>();
         FieldWidgetRegistry registry = new();

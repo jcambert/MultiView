@@ -71,6 +71,9 @@
     [Inject]
     private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
 
+    [Inject]
+    private IRuleUserContextAccessor RuleUserContextAccessor { get; set; } = null!;
+
     [Parameter]
     public KanbanViewDefinition Definition { get; set; } = null!;
 
@@ -171,7 +174,11 @@
     {
         try
         {
-            var context = new RecordRuleValueAccessor(PropertyAccessor, record, GlobalContext);
+            var context = new RecordRuleValueAccessor(
+                PropertyAccessor,
+                record,
+                GlobalContext,
+                RuleUserContextAccessor.GetCurrentUser());
             return RuleEvaluator.Evaluate(when, context);
         }
         catch

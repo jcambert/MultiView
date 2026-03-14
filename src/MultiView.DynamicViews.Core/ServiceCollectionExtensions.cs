@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
         services.AddMemoryCache();
         services.AddSingleton<ViewDefinitionValidationOptions>();
         services.AddSingleton<IViewDefinitionValidator, JsonViewDefinitionValidator>();
+        services.AddSingleton<IRuleUserContextAccessor, EmptyRuleUserContextAccessor>();
         services.AddSingleton<IRecordPropertyAccessor, ReflectionRecordPropertyAccessor>();
         services.AddSingleton<IViewDefinitionSerializer, ViewDefinitionSerializer>();
         services.AddSingleton<IRuleEvaluator, DefaultRuleEvaluator>();

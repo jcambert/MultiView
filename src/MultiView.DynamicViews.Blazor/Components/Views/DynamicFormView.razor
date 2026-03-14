@@ -69,6 +69,9 @@
     [Inject]
     private IRecordPropertyAccessor PropertyAccessor { get; set; } = null!;
 
+    [Inject]
+    private IRuleUserContextAccessor RuleUserContextAccessor { get; set; } = null!;
+
     [Parameter]
     public FormViewDefinition Definition { get; set; } = null!;
 
@@ -94,7 +97,11 @@
             return true;
         }
 
-        var ruleContext = new RecordRuleValueAccessor(PropertyAccessor, Record, GlobalContext);
+        var ruleContext = new RecordRuleValueAccessor(
+            PropertyAccessor,
+            Record,
+            GlobalContext,
+            RuleUserContextAccessor.GetCurrentUser());
         return RuleEvaluator.Evaluate(action.VisibilityRule, ruleContext);
     }
 
@@ -105,7 +112,11 @@
             return true;
         }
 
-        var ruleContext = new RecordRuleValueAccessor(PropertyAccessor, Record, GlobalContext);
+        var ruleContext = new RecordRuleValueAccessor(
+            PropertyAccessor,
+            Record,
+            GlobalContext,
+            RuleUserContextAccessor.GetCurrentUser());
         return RuleEvaluator.Evaluate(action.EnabledRule, ruleContext);
     }
 

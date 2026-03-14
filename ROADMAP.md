@@ -35,7 +35,7 @@ Objectif : garder une source unique de vérité sur les fonctionnalités livrée
 | Planned | US-UI-09 | Pivot View | Données pivots multi-indicateurs | P2 | Colonnes dynamiques par définition + visualisation croisée réelle. |
 | Planned | US-UI-10 | Calendar View | Composant calendrier robuste | P2 | Bucketing hebdomadaire/mensuel, collisions, actions sur période. |
 | Planned | US-UI-11 | Gantt View | Gestion complète des tâches | P2 | Lignes/groupes, dépendances, progression, vue temporelle. |
-| Planned | US-SEC-01 | Sécurité | Règles avec contexte utilisateur | P0 | Ajouter contexte `user`, rôles et claims dans l’évaluation des règles. |
+| In Progress | US-SEC-01 | Sécurité | Règles avec contexte utilisateur | P0 | Contexte `user` (isAuthenticated, id, name, roles, claims) injecté dans l’évaluation des règles via accessor dédié. Reste: durcissement et docs d’usage. |
 | Planned | US-SEC-02 | Sécurité | Contrôle d’accès aux actions/affichages | P0 | Verrouiller visibilités sensibles au niveau actions + champs selon permissions. |
 | Planned | US-OPS-01 | Observabilité | Journal d’audit des changements de vues | P2 | Traçabilité import/édition/validation des définitions. |
 | Planned | US-OPS-02 | Performance | Cache distribué + invalidation | P2 | Ajouter Redis (ou équivalent), invalidation basée version. |
@@ -55,6 +55,7 @@ Objectif : garder une source unique de vérité sur les fonctionnalités livrée
 
 - 2026-03-14 — US-DS-06 (partiel) : ajout d’un validateur JSON côté Core branché dans `ViewDefinitionSerializer` avec erreurs détaillées (path/champ/type) et gestion configurable des champs inconnus (`Ignore`, `Warning`, `Error`).
 - 2026-03-14 — US-DS-06 (itération 2) : ajout des contrôles de références de champs (`columns`, `searchFields`, `card`, `graph/pivot/calendar/gantt`) et création d’un projet de tests xUnit `MultiView.DynamicViews.Core.Tests` (5 tests initiaux).
+- 2026-03-14 — US-SEC-01 (itération 1) : ajout du contexte utilisateur pour règles (`user.*`) avec support des rôles et claims, câblage Blazor via `AuthenticationStateProvider`, et tests unitaires dédiés du moteur de règles.
 - 2026-03-13 — US-UI-04 / US-UI-05 / US-UI-06 : pagination côté client, tri sur colonnes et sélection de taille de page pour List/Search (`enablePaging`, `defaultPageSize`), avec reset de pagination sur changements de filtre/recherche.
 - 2026-03-13 — US-UI-07 : colonnes Kanban explicites (`columns`), matching par expression (`when`) ou par valeur (`value`), matching fallback par `groupByField`, et `showUnassignedColumn`.
 

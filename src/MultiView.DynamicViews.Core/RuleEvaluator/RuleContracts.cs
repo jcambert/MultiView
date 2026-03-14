@@ -18,3 +18,8 @@ public interface IRuleEvaluator
 
     Func<IRuleValueAccessor, bool> Compile(string expression);
 }
+
+public interface IRuleUserContextAccessor
+{
+    RuleUserContext GetCurrentUser();
+}

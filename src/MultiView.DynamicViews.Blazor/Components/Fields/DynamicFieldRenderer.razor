@@ -23,6 +23,9 @@ else if (_isVisible)
     [Inject]
     private IRuleEvaluator RuleEvaluator { get; set; } = null!;
 
+    [Inject]
+    private IRuleUserContextAccessor RuleUserContextAccessor { get; set; } = null!;
+
     [Parameter]
     public object Record { get; set; } = null!;
 
@@ -66,7 +69,11 @@ else if (_isVisible)
             return;
         }
 
-        var context = new RecordRuleValueAccessor(PropertyAccessor, Record, GlobalContext);
+        var context = new RecordRuleValueAccessor(
+            PropertyAccessor,
+            Record,
+            GlobalContext,
+            RuleUserContextAccessor.GetCurrentUser());
         _isVisible = Evaluate(FieldDefinition.Rules?.Visible, VisibleDefault, context);
 
         if (!_isVisible)
