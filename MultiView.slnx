@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/_files/">
     <File Path="README.md" />
+    <File Path="ROADMAP.md" />
   </Folder>
 </Solution>
